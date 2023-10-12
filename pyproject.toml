@@ -1,0 +1,10 @@
+[build-system]
+requires = ["setuptools>42", "wheel"]
+build-backend = "setuptools.build_meta"
+packages = ["nflows"]
+package-dir = ["src"]
+
+[project]
+name = "nflows"
+version = "0.0.1"
+dependencies = ["numpy"]
