@@ -16,6 +16,11 @@ class Flow(ABC):
         batch (e.g. None)."""
 
     @abstractmethod
+    def get_parameters(self) -> dict:
+        """Get a dict of all model parameters, keyed by
+        parameter name."""
+
+    @abstractmethod
     def forward(self, X: np.ndarray) -> np.ndarray:
         """Transform samples of random variable X into
         samples of random variable Y."""
@@ -26,9 +31,11 @@ class Flow(ABC):
         samples of random variable X."""
 
     @abstractmethod
-    def get_parameters(self) -> dict:
-        """Get a dict of all model parameters, keyed by
-        parameter name."""
+    def backward(self, X: np.ndarray, dL_dY: np.ndarray) -> np.ndarray:
+        """Given partial derivatives of a scalar loss with
+        respect to the output of this Flow, evaluate the
+        partial derivatives of the loss with respect to the
+        input of this Flow."""
 
 
 class LinearFlow(Flow):
@@ -58,6 +65,14 @@ class LinearFlow(Flow):
     def invert(self, Y: np.ndarray) -> np.ndarray:
         return (Y - self.mean) / (self.scale + EPSILON)
 
+    def backward(self, X: np.ndarray, dL_dY: np.ndarray) -> np.ndarray:
+        assert len(X.shape) == len(dL_dY.shape) == 2
+        assert X.shape[1] == dL_dY.shape[1] == self.n
+        a = self.scale
+        b = self.mean
+        dL_dX = dL_dY * a
+        return dL_dX
+
 
 class PlanarFlow(Flow):
     def __init__(self, n: int, w=None, v=None, b=None):
@@ -77,6 +92,9 @@ class PlanarFlow(Flow):
     @property
     def shape(self) -> Tuple[int]:
         return (None, self.n)
+
+    def get_parameters(self) -> Tuple[np.ndarray]:
+        return {"w": self.w, "v": self.v, "b": self.b}
 
     def forward(self, X: np.ndarray) -> np.ndarray:
         assert len(X.shape) == 2
@@ -110,8 +128,18 @@ class PlanarFlow(Flow):
         X = Y - np.tanh(alpha + b)[:, None] * v
         return X
 
-    def get_parameters(self) -> Tuple[np.ndarray]:
-        return {"w": self.w, "v": self.v, "b": self.b}
+    def backward(self, X: np.ndarray, dL_dY: np.ndarray) -> np.ndarray:
+        assert len(X.shape) == len(dL_dY.shape) == 2
+        assert X.shape[1] == dL_dY.shape[1] == self.n
+        w = self.w
+        v = self.v
+        b = self.b
+        a = X @ w + b
+        tanha = np.tanh(a)
+        dtanha_da = 1 - tanha**2
+        dyv = dL_dY @ v
+        dL_dX = dL_dY + (dtanha_da * dyv)[:, None] * w
+        return dL_dX
 
     def detjac(self, X: np.ndarray) -> np.ndarray:
         """Compute the determinant of the Jacobian for each datum,

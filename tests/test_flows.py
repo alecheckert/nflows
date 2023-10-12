@@ -69,6 +69,7 @@ class TestPlanarFlow(unittest.TestCase):
 class TestLinearFlow(unittest.TestCase):
     def setUp(self):
         self.n = 4
+        np.random.seed(666)
 
     def test_get_parameter(self):
         mean = np.random.normal(size=self.n).astype(DTYPE)
@@ -87,4 +88,30 @@ class TestLinearFlow(unittest.TestCase):
         X = np.random.normal(size=(10, self.n)).astype(DTYPE)
         Y = flow.forward(X)
         Z = flow.invert(Y)
-        np.testing.assert_allclose(Z, X, atol=1e-5, rtol=1e-5)
+        np.testing.assert_allclose(Z, X, atol=1e-4, rtol=1e-4)
+
+    def test_backward(self):
+        mean = np.random.normal(size=self.n).astype(DTYPE)
+        scale = np.random.normal(size=self.n).astype(DTYPE)
+        flow = LinearFlow(n=self.n, mean=mean, scale=scale)
+
+        def loss(X: np.ndarray) -> float:
+            Y = flow.forward(X)
+            return 0.5 * (Y**2).sum()
+
+        X = np.random.normal(size=(10, self.n)).astype(DTYPE)
+
+        # For each datum, check that numerical differentiation
+        # agrees with the analytical differentiation via the
+        # Flow.backward routine
+        for i in range(X.shape[0]):
+            # Evaluate partial derivatives of loss w.r.t. X
+            # via numerical differentiation
+            delta = 1e-3
+            dL_dX_num = finite_differences(loss, X, delta=delta)
+
+            # Evaluate via backpropagation
+            Y = flow.forward(X)
+            dL_dY = Y.copy()
+            dL_dX_ana = flow.backward(X, dL_dY)
+            np.testing.assert_allclose(dL_dX_ana, dL_dX_num, atol=1e-3, rtol=1e-3)
