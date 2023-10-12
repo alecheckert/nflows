@@ -39,27 +39,27 @@ class Flow(ABC):
 
 
 class LinearFlow(Flow):
-    def __init__(self, n: int, mean=None, scale=None):
-        self.n = n
+    def __init__(self, d: int, mean=None, scale=None):
+        self.d = d
         if mean is None:
             mean = np.zeros(n, dtype=DTYPE)
         if scale is None:
             scale = np.ones(n, dtype=DTYPE)
         assert len(mean.shape) == len(scale.shape) == 1
-        assert mean.shape == scale.shape == (n,)
+        assert mean.shape == scale.shape == (d,)
         self.mean = mean
         self.scale = scale
 
     @property
     def shape(self) -> Tuple[int]:
-        return (None, self.n)
+        return (None, self.d)
 
     def get_parameters(self) -> dict:
         return {"mean": self.mean, "scale": self.scale}
 
     def forward(self, X: np.ndarray) -> np.ndarray:
         assert len(X.shape) == 2
-        assert X.shape[1] == self.n
+        assert X.shape[1] == self.d
         return X * self.scale + self.mean
 
     def invert(self, Y: np.ndarray) -> np.ndarray:
@@ -67,7 +67,7 @@ class LinearFlow(Flow):
 
     def backward(self, X: np.ndarray, dL_dY: np.ndarray) -> np.ndarray:
         assert len(X.shape) == len(dL_dY.shape) == 2
-        assert X.shape[1] == dL_dY.shape[1] == self.n
+        assert X.shape[1] == dL_dY.shape[1] == self.d
         a = self.scale
         b = self.mean
         dL_dX = dL_dY * a
@@ -75,30 +75,30 @@ class LinearFlow(Flow):
 
 
 class PlanarFlow(Flow):
-    def __init__(self, n: int, w=None, v=None, b=None):
-        self.n = n
+    def __init__(self, d: int, w=None, v=None, b=None):
+        self.d = d
         if w is None:
-            w = np.random.normal(scale=np.sqrt(1 / n), size=n).astype(DTYPE)
+            w = np.random.normal(scale=np.sqrt(1 / d), size=d).astype(DTYPE)
         if v is None:
-            v = np.random.normal(scale=np.sqrt(1 / n), size=n).astype(DTYPE)
+            v = np.random.normal(scale=np.sqrt(1 / d), size=d).astype(DTYPE)
         if b is None:
             b = 0.0
         assert len(w.shape) == len(v.shape) == 1
-        assert w.shape == v.shape == (n,)
+        assert w.shape == v.shape == (d,)
         self.w = w
         self.v = v
         self.b = b
 
     @property
     def shape(self) -> Tuple[int]:
-        return (None, self.n)
+        return (None, self.d)
 
     def get_parameters(self) -> Tuple[np.ndarray]:
         return {"w": self.w, "v": self.v, "b": self.b}
 
     def forward(self, X: np.ndarray) -> np.ndarray:
         assert len(X.shape) == 2
-        assert X.shape[1] == self.n
+        assert X.shape[1] == self.d
         w = self.w
         v = self.v
         b = self.b
@@ -107,7 +107,7 @@ class PlanarFlow(Flow):
 
     def invert(self, Y: np.ndarray) -> np.ndarray:
         assert len(Y.shape) == 2
-        assert Y.shape[1] == self.n
+        assert Y.shape[1] == self.d
         n = Y.shape[0]
         alpha = np.zeros(n, dtype=Y.dtype)
         converged = np.zeros(n, dtype=bool)
@@ -130,7 +130,7 @@ class PlanarFlow(Flow):
 
     def backward(self, X: np.ndarray, dL_dY: np.ndarray) -> np.ndarray:
         assert len(X.shape) == len(dL_dY.shape) == 2
-        assert X.shape[1] == dL_dY.shape[1] == self.n
+        assert X.shape[1] == dL_dY.shape[1] == self.d
         w = self.w
         v = self.v
         b = self.b
@@ -145,7 +145,7 @@ class PlanarFlow(Flow):
         """Compute the determinant of the Jacobian for each datum,
         returning an 1D ndarray of shape (X.shape[0],)."""
         assert len(X.shape) == 2
-        assert X.shape[1] == self.n
+        assert X.shape[1] == self.d
         w = self.w
         v = self.v
         b = self.b
@@ -159,7 +159,7 @@ class PlanarFlow(Flow):
         """Partial derivatives of the log Jacobian determinant
         with respect to each element of *X*."""
         assert len(X.shape) == 2
-        assert X.shape[1] == self.n
+        assert X.shape[1] == self.d
         w = self.w
         v = self.v
         b = self.b

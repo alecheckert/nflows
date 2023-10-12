@@ -69,7 +69,7 @@ class TestPlanarFlow(unittest.TestCase):
         w = np.random.normal(size=self.d).astype(DTYPE)
         v = np.random.normal(size=self.d).astype(DTYPE)
         b = np.random.normal()
-        flow = PlanarFlow(n=self.d, w=w, v=v, b=b)
+        flow = PlanarFlow(d=self.d, w=w, v=v, b=b)
 
         def loss(X: np.ndarray) -> float:
             Y = flow.forward(X)
@@ -97,13 +97,13 @@ class TestPlanarFlow(unittest.TestCase):
 
 class TestLinearFlow(unittest.TestCase):
     def setUp(self):
-        self.n = 4
+        self.d = 4
         np.random.seed(666)
 
     def test_get_parameter(self):
-        mean = np.random.normal(size=self.n).astype(DTYPE)
-        scale = np.random.normal(size=self.n).astype(DTYPE)
-        flow = LinearFlow(n=self.n, mean=mean, scale=scale)
+        mean = np.random.normal(size=self.d).astype(DTYPE)
+        scale = np.random.normal(size=self.d).astype(DTYPE)
+        flow = LinearFlow(d=self.d, mean=mean, scale=scale)
         pars = flow.get_parameters()
         assert pars["mean"] is flow.mean
         assert pars["scale"] is flow.scale
@@ -111,24 +111,24 @@ class TestLinearFlow(unittest.TestCase):
         np.testing.assert_allclose(pars["scale"], flow.scale, atol=1e-5, rtol=1e-5)
 
     def test_invert(self):
-        mean = np.random.normal(size=self.n).astype(DTYPE)
-        scale = np.random.normal(size=self.n).astype(DTYPE)
-        flow = LinearFlow(n=self.n, mean=mean, scale=scale)
-        X = np.random.normal(size=(10, self.n)).astype(DTYPE)
+        mean = np.random.normal(size=self.d).astype(DTYPE)
+        scale = np.random.normal(size=self.d).astype(DTYPE)
+        flow = LinearFlow(d=self.d, mean=mean, scale=scale)
+        X = np.random.normal(size=(10, self.d)).astype(DTYPE)
         Y = flow.forward(X)
         Z = flow.invert(Y)
         np.testing.assert_allclose(Z, X, atol=1e-4, rtol=1e-4)
 
     def test_backward(self):
-        mean = np.random.normal(size=self.n).astype(DTYPE)
-        scale = np.random.normal(size=self.n).astype(DTYPE)
-        flow = LinearFlow(n=self.n, mean=mean, scale=scale)
+        mean = np.random.normal(size=self.d).astype(DTYPE)
+        scale = np.random.normal(size=self.d).astype(DTYPE)
+        flow = LinearFlow(d=self.d, mean=mean, scale=scale)
 
         def loss(X: np.ndarray) -> float:
             Y = flow.forward(X)
             return 0.5 * (Y**2).sum()
 
-        X = np.random.normal(size=(10, self.n)).astype(DTYPE)
+        X = np.random.normal(size=(10, self.d)).astype(DTYPE)
 
         # For each datum, check that numerical differentiation
         # agrees with the analytical differentiation via the
