@@ -32,10 +32,25 @@ class Flow(ABC):
         samples of random variable X."""
 
     @abstractmethod
-    def backward(self, X: np.ndarray, dL_dY: np.ndarray) -> Tuple[np.ndarray]:
+    def backward(
+        self, X: np.ndarray, dL_dY: np.ndarray, normalize: bool = True
+    ) -> Tuple[np.ndarray]:
         """Given partial derivatives of a scalar loss with
         respect to the output of this Flow, propagate these
         partial derivatives to the Flow's input.
+
+        Parameters
+        ---------
+        X           :   input to this Flow
+        dL_dY       :   partial derivatives of a scalar loss
+                        with respect to each output element
+                        of this loss (shape *X.shape*)
+        normalize   :   actually normalize the propagated
+                        partial derivatives using the Jac.
+                        determinant. If False, we only
+                        backpropagate through the output of
+                        the Flow, not through its determinant.
+                        Useful for tests.
 
         Returns
         -------
@@ -77,7 +92,9 @@ class LinearFlow(Flow):
     def invert(self, Y: np.ndarray) -> np.ndarray:
         return (Y - self.mean) / (self.scale + EPSILON)
 
-    def backward(self, X: np.ndarray, dL_dY: np.ndarray) -> Tuple[np.ndarray]:
+    def backward(
+        self, X: np.ndarray, dL_dY: np.ndarray, normalize: bool = True
+    ) -> Tuple[np.ndarray]:
         assert len(X.shape) == len(dL_dY.shape) == 2
         assert X.shape[1] == dL_dY.shape[1] == self.d
         a = self.scale
@@ -85,6 +102,8 @@ class LinearFlow(Flow):
         dL_dX = dL_dY * a
         detjac = np.full(X.shape[0], np.prod(self.scale), dtype=X.dtype)
         dlogdetjac_dX = np.zeros_like(X)
+        # if normalize:  # meaningless for LinearFlow
+        #     dL_dX -= dlogdetjac_dX
         return dL_dX, detjac, dlogdetjac_dX
 
 
@@ -144,7 +163,9 @@ class PlanarFlow(Flow):
         X = Y - np.tanh(alpha + b)[:, None] * v
         return X
 
-    def backward(self, X: np.ndarray, dL_dY: np.ndarray) -> Tuple[np.ndarray]:
+    def backward(
+        self, X: np.ndarray, dL_dY: np.ndarray, normalize: bool = True
+    ) -> Tuple[np.ndarray]:
         assert len(X.shape) == len(dL_dY.shape) == 2
         assert X.shape[1] == dL_dY.shape[1] == self.d
         w = self.w
@@ -159,6 +180,8 @@ class PlanarFlow(Flow):
         wv = w @ v
         detjac = 1 + wv * dtanha_da
         dlogdetjac_dX = ((wv * ddtanha_dda) / (detjac + EPSILON))[:, None] * w
+        if normalize:
+            dL_dX -= dlogdetjac_dX
         return dL_dX, detjac, dlogdetjac_dX
 
 
