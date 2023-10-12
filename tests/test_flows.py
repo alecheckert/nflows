@@ -26,9 +26,9 @@ class TestPlanarFlow(unittest.TestCase):
         invY = flow.invert(Y)
         np.testing.assert_allclose(invY, X, atol=1e-5, rtol=1e-5)
 
-    def test_get_parameters(self):
+    def test_parameters(self):
         flow = PlanarFlow(self.d)
-        pars = flow.get_parameters()
+        pars = flow.parameters
         assert pars["w"] is flow.w
         assert pars["v"] is flow.v
         assert pars["b"] is flow.b
@@ -104,7 +104,7 @@ class TestLinearFlow(unittest.TestCase):
         mean = np.random.normal(size=self.d).astype(DTYPE)
         scale = np.random.normal(size=self.d).astype(DTYPE)
         flow = LinearFlow(d=self.d, mean=mean, scale=scale)
-        pars = flow.get_parameters()
+        pars = flow.parameters
         assert pars["mean"] is flow.mean
         assert pars["scale"] is flow.scale
         np.testing.assert_allclose(pars["mean"], flow.mean, atol=1e-5, rtol=1e-5)
@@ -149,7 +149,7 @@ class TestLinearFlow(unittest.TestCase):
 
 
 class TestParameterMutability(unittest.TestCase):
-    """Test that Flow.get_parameters() always returns references
+    """Test that Flow.parameters always returns references
     of underlying flow parameters, so that modifications of those
     parameters update the actual parameters in the relevant Flow
     instance."""
@@ -158,7 +158,7 @@ class TestParameterMutability(unittest.TestCase):
         d = 4
         for flow_name, flow_cls in FLOWS.items():
             flow = flow_cls(d)
-            pars = flow.get_parameters()
+            pars = flow.parameters
             for k, v in pars.items():
                 assert len(v.shape) == 1  # current limitation
                 for i in range(v.shape[0]):

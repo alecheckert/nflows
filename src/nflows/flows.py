@@ -15,8 +15,9 @@ class Flow(ABC):
         First dimension is assumed to encode index in
         batch (e.g. None)."""
 
+    @property
     @abstractmethod
-    def get_parameters(self) -> dict:
+    def parameters(self) -> dict:
         """Get a dict of all model parameters, keyed by
         parameter name."""
 
@@ -54,7 +55,8 @@ class LinearFlow(Flow):
     def shape(self) -> Tuple[int]:
         return (None, self.d)
 
-    def get_parameters(self) -> dict:
+    @property
+    def parameters(self) -> dict:
         return {"mean": self.mean, "scale": self.scale}
 
     def forward(self, X: np.ndarray) -> np.ndarray:
@@ -94,7 +96,8 @@ class PlanarFlow(Flow):
     def shape(self) -> Tuple[int]:
         return (None, self.d)
 
-    def get_parameters(self) -> Tuple[np.ndarray]:
+    @property
+    def parameters(self) -> Tuple[np.ndarray]:
         return {"w": self.w, "v": self.v, "b": self.b}
 
     def forward(self, X: np.ndarray) -> np.ndarray:
