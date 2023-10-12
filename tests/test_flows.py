@@ -54,9 +54,10 @@ class TestPlanarFlow(unittest.TestCase):
         for X in sample_X:
 
             def f(X: np.ndarray) -> float:
-                return np.log(np.abs(flow.jacdet(X)[0][0]) + EPSILON)
+                _, detjac, _ = flow.backward(X, np.zeros_like(X))
+                return np.log(detjac[0] + EPSILON)
 
-            detjac, dlogdetjac_dX = flow.jacdet(X)
+            _, detjac, dlogdetjac_dX = flow.backward(X, np.zeros_like(X))
             dlogdetjac_dX_num = finite_differences(f, X, delta=delta)
             np.testing.assert_allclose(
                 dlogdetjac_dX, dlogdetjac_dX_num, atol=1e-4, rtol=1e-3
@@ -88,7 +89,7 @@ class TestPlanarFlow(unittest.TestCase):
             # Evaluate via backpropagation
             Y = flow.forward(Xi)
             dL_dY = Y.copy()
-            dL_dX_ana = flow.backward(Xi, dL_dY)
+            dL_dX_ana, _, _ = flow.backward(Xi, dL_dY)
             np.testing.assert_allclose(dL_dX_ana, dL_dX_num, atol=1e-3, rtol=1e-3)
 
 
@@ -106,17 +107,6 @@ class TestLinearFlow(unittest.TestCase):
         assert pars["scale"] is flow.scale
         np.testing.assert_allclose(pars["mean"], flow.mean, atol=1e-5, rtol=1e-5)
         np.testing.assert_allclose(pars["scale"], flow.scale, atol=1e-5, rtol=1e-5)
-
-    def test_jacdet(self):
-        mean = np.random.normal(size=self.d).astype(DTYPE)
-        scale = np.random.normal(size=self.d).astype(DTYPE)
-        flow = LinearFlow(d=self.d, mean=mean, scale=scale)
-        n = 3
-        X = np.random.normal(size=(10, self.d)).astype(DTYPE)
-        jd, dlogdetjac_dX = flow.jacdet(X)
-        assert jd.shape == (X.shape[0],)
-        np.testing.assert_allclose(jd, np.prod(scale), atol=1e-4, rtol=1e-4)
-        np.testing.assert_allclose(dlogdetjac_dX, 0.0, atol=1e-4, rtol=1e-4)
 
     def test_invert(self):
         mean = np.random.normal(size=self.d).astype(DTYPE)
@@ -152,8 +142,19 @@ class TestLinearFlow(unittest.TestCase):
             # Evaluate via backpropagation
             Y = flow.forward(Xi)
             dL_dY = Y.copy()
-            dL_dX_ana = flow.backward(Xi, dL_dY)
+            dL_dX_ana, _, _ = flow.backward(Xi, dL_dY)
             np.testing.assert_allclose(dL_dX_ana, dL_dX_num, atol=1e-3, rtol=1e-3)
+
+    def test_jacdet(self):
+        mean = np.random.normal(size=self.d).astype(DTYPE)
+        scale = np.random.normal(size=self.d).astype(DTYPE)
+        flow = LinearFlow(d=self.d, mean=mean, scale=scale)
+        n = 3
+        X = np.random.normal(size=(1, self.d)).astype(DTYPE)
+        _, jd, dlogdetjac_dX = flow.backward(X, np.zeros_like(X))
+        assert jd.shape == (X.shape[0],)
+        np.testing.assert_allclose(jd, np.prod(scale), atol=1e-4, rtol=1e-4)
+        np.testing.assert_allclose(dlogdetjac_dX, 0.0, atol=1e-4, rtol=1e-4)
 
 
 class TestParameterMutability(unittest.TestCase):
