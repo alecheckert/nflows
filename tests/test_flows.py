@@ -100,7 +100,7 @@ class TestLinearFlow(unittest.TestCase):
         self.d = 4
         np.random.seed(666)
 
-    def test_get_parameter(self):
+    def test_parameters(self):
         mean = np.random.normal(size=self.d).astype(DTYPE)
         scale = np.random.normal(size=self.d).astype(DTYPE)
         flow = LinearFlow(d=self.d, mean=mean, scale=scale)
@@ -109,6 +109,16 @@ class TestLinearFlow(unittest.TestCase):
         assert pars["scale"] is flow.scale
         np.testing.assert_allclose(pars["mean"], flow.mean, atol=1e-5, rtol=1e-5)
         np.testing.assert_allclose(pars["scale"], flow.scale, atol=1e-5, rtol=1e-5)
+
+    def test_jacdet(self):
+        mean = np.random.normal(size=self.d).astype(DTYPE)
+        scale = np.random.normal(size=self.d).astype(DTYPE)
+        flow = LinearFlow(d=self.d, mean=mean, scale=scale)
+        n = 3
+        X = np.random.normal(size=(10, self.d)).astype(DTYPE)
+        jd = flow.jacdet(X)
+        assert jd.shape == (X.shape[0],)
+        np.testing.assert_allclose(jd, np.prod(scale), atol=1e-4, rtol=1e-4)
 
     def test_invert(self):
         mean = np.random.normal(size=self.d).astype(DTYPE)

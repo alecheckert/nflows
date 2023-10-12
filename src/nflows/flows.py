@@ -27,6 +27,11 @@ class Flow(ABC):
         samples of random variable Y."""
 
     @abstractmethod
+    def jacdet(self, X: np.ndarray) -> np.ndarray:
+        """Evaluate the Jacobian determinant for each
+        datum, returning array of shape (X.shape[0],)."""
+
+    @abstractmethod
     def invert(self, Y: np.ndarray) -> np.ndarray:
         """Transform samples of random variable Y into
         samples of random variable X."""
@@ -63,6 +68,12 @@ class LinearFlow(Flow):
         assert len(X.shape) == 2
         assert X.shape[1] == self.d
         return X * self.scale + self.mean
+
+    def jacdet(self, X: np.ndarray) -> np.ndarray:
+        assert len(X.shape) == 2
+        assert X.shape[1] == self.d
+        detj = np.prod(self.scale)
+        return np.full(X.shape[0], detj, dtype=X.dtype)
 
     def invert(self, Y: np.ndarray) -> np.ndarray:
         return (Y - self.mean) / (self.scale + EPSILON)
@@ -108,6 +119,17 @@ class PlanarFlow(Flow):
         b = self.b
         Y = X + np.tanh(X @ w + b)[:, None] * v
         return Y
+
+    def jacdet(self, X: np.ndarray) -> np.ndarray:
+        """Compute the determinant of the Jacobian for each datum,
+        returning an 1D ndarray of shape (X.shape[0],)."""
+        assert len(X.shape) == 2
+        assert X.shape[1] == self.d
+        w = self.w
+        v = self.v
+        b = self.b
+        wv = w @ v
+        return 1 + wv * (1 - np.tanh(X @ w + b) ** 2)
 
     def invert(self, Y: np.ndarray) -> np.ndarray:
         assert len(Y.shape) == 2
