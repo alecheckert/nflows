@@ -42,9 +42,9 @@ class LinearFlow(Flow):
     def __init__(self, d: int, mean=None, scale=None):
         self.d = d
         if mean is None:
-            mean = np.zeros(n, dtype=DTYPE)
+            mean = np.zeros(d, dtype=DTYPE)
         if scale is None:
-            scale = np.ones(n, dtype=DTYPE)
+            scale = np.ones(d, dtype=DTYPE)
         assert len(mean.shape) == len(scale.shape) == 1
         assert mean.shape == scale.shape == (d,)
         self.mean = mean
@@ -82,9 +82,10 @@ class PlanarFlow(Flow):
         if v is None:
             v = np.random.normal(scale=np.sqrt(1 / d), size=d).astype(DTYPE)
         if b is None:
-            b = 0.0
-        assert len(w.shape) == len(v.shape) == 1
+            b = np.array([0.0])
+        assert len(w.shape) == len(v.shape) == len(b.shape) == 1
         assert w.shape == v.shape == (d,)
+        assert b.shape == (1,)
         self.w = w
         self.v = v
         self.b = b
@@ -169,3 +170,6 @@ class PlanarFlow(Flow):
         ddtanha_dda = -2 * tanha * dtanha_da
         detjac = 1 + dtanha_da * vw
         return (vw * ddtanha_dda / (detjac + EPSILON))[:, None] * w
+
+
+FLOWS = {f.__name__: f for f in [LinearFlow, PlanarFlow]}

@@ -2,7 +2,7 @@ import numpy as np
 import unittest
 
 from nflows.constants import DTYPE
-from nflows.flows import LinearFlow, PlanarFlow
+from nflows.flows import LinearFlow, PlanarFlow, FLOWS
 from nflows.utils import finite_differences
 
 
@@ -31,7 +31,7 @@ class TestPlanarFlow(unittest.TestCase):
         pars = flow.get_parameters()
         assert pars["w"] is flow.w
         assert pars["v"] is flow.v
-        assert abs(pars["b"] - flow.b) < 1e-6
+        assert pars["b"] is flow.b
         # numpy arrays are references
         pars["w"][0] += 1.0
         assert abs(pars["w"][0] - flow.w[0]) < 1e-6
@@ -68,7 +68,7 @@ class TestPlanarFlow(unittest.TestCase):
     def test_backward(self):
         w = np.random.normal(size=self.d).astype(DTYPE)
         v = np.random.normal(size=self.d).astype(DTYPE)
-        b = np.random.normal()
+        b = np.random.normal(size=1).astype(DTYPE)
         flow = PlanarFlow(d=self.d, w=w, v=v, b=b)
 
         def loss(X: np.ndarray) -> float:
@@ -146,3 +146,21 @@ class TestLinearFlow(unittest.TestCase):
             dL_dY = Y.copy()
             dL_dX_ana = flow.backward(Xi, dL_dY)
             np.testing.assert_allclose(dL_dX_ana, dL_dX_num, atol=1e-3, rtol=1e-3)
+
+
+class TestParameterMutability(unittest.TestCase):
+    """Test that Flow.get_parameters() always returns references
+    of underlying flow parameters, so that modifications of those
+    parameters update the actual parameters in the relevant Flow
+    instance."""
+
+    def test_parameter_mutability(self):
+        d = 4
+        for flow_name, flow_cls in FLOWS.items():
+            flow = flow_cls(d)
+            pars = flow.get_parameters()
+            for k, v in pars.items():
+                assert len(v.shape) == 1  # current limitation
+                for i in range(v.shape[0]):
+                    v[i] += 10.0
+                    assert abs(getattr(flow, k)[i] - v[i]) < 1e-6
