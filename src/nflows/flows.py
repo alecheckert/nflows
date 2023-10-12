@@ -31,6 +31,34 @@ class Flow(ABC):
         parameter name."""
 
 
+class LinearFlow(Flow):
+    def __init__(self, n: int, mean=None, scale=None):
+        self.n = n
+        if mean is None:
+            mean = np.zeros(n, dtype=DTYPE)
+        if scale is None:
+            scale = np.ones(n, dtype=DTYPE)
+        assert len(mean.shape) == len(scale.shape) == 1
+        assert mean.shape == scale.shape == (n,)
+        self.mean = mean
+        self.scale = scale
+
+    @property
+    def shape(self) -> Tuple[int]:
+        return (None, self.n)
+
+    def get_parameters(self) -> dict:
+        return {"mean": self.mean, "scale": self.scale}
+
+    def forward(self, X: np.ndarray) -> np.ndarray:
+        assert len(X.shape) == 2
+        assert X.shape[1] == self.n
+        return X * self.scale + self.mean
+
+    def invert(self, Y: np.ndarray) -> np.ndarray:
+        return (Y - self.mean) / (self.scale + EPSILON)
+
+
 class PlanarFlow(Flow):
     def __init__(self, n: int, w=None, v=None, b=None):
         self.n = n
@@ -41,7 +69,7 @@ class PlanarFlow(Flow):
         if b is None:
             b = 0.0
         assert len(w.shape) == len(v.shape) == 1
-        assert w.shape == v.shape
+        assert w.shape == v.shape == (n,)
         self.w = w
         self.v = v
         self.b = b

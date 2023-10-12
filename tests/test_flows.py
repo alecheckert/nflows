@@ -1,7 +1,8 @@
 import numpy as np
 import unittest
 
-from nflows.flows import PlanarFlow, DTYPE
+from nflows.constants import DTYPE
+from nflows.flows import LinearFlow, PlanarFlow
 from nflows.utils import finite_differences
 
 
@@ -63,3 +64,27 @@ class TestPlanarFlow(unittest.TestCase):
             np.testing.assert_allclose(
                 dlogdetjac_dX, dlogdetjac_dX_num, atol=1e-4, rtol=1e-3
             )
+
+
+class TestLinearFlow(unittest.TestCase):
+    def setUp(self):
+        self.n = 4
+
+    def test_get_parameter(self):
+        mean = np.random.normal(size=self.n).astype(DTYPE)
+        scale = np.random.normal(size=self.n).astype(DTYPE)
+        flow = LinearFlow(n=self.n, mean=mean, scale=scale)
+        pars = flow.get_parameters()
+        assert pars["mean"] is flow.mean
+        assert pars["scale"] is flow.scale
+        np.testing.assert_allclose(pars["mean"], flow.mean, atol=1e-5, rtol=1e-5)
+        np.testing.assert_allclose(pars["scale"], flow.scale, atol=1e-5, rtol=1e-5)
+
+    def test_invert(self):
+        mean = np.random.normal(size=self.n).astype(DTYPE)
+        scale = np.random.normal(size=self.n).astype(DTYPE)
+        flow = LinearFlow(n=self.n, mean=mean, scale=scale)
+        X = np.random.normal(size=(10, self.n)).astype(DTYPE)
+        Y = flow.forward(X)
+        Z = flow.invert(Y)
+        np.testing.assert_allclose(Z, X, atol=1e-5, rtol=1e-5)
