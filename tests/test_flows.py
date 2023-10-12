@@ -89,6 +89,42 @@ class TestPlanarFlow(unittest.TestCase):
             # Evaluate via backpropagation
             Y = flow.forward(Xi)
             dL_dY = Y.copy()
+            dL_dX_ana, _, _ = flow.backward(Xi, dL_dY, normalize=False)
+            np.testing.assert_allclose(dL_dX_ana, dL_dX_num, atol=1e-3, rtol=1e-3)
+
+    def test_backward_full_loss(self):
+        """Test PlanarFlow.backward with a full normalizing flow
+        loss, incorporating partial derivatives with respect to
+        the log Jacobian determinant."""
+        w = np.random.normal(size=self.d).astype(DTYPE)
+        v = np.random.normal(size=self.d).astype(DTYPE)
+        b = np.random.normal(size=1).astype(DTYPE)
+        flow = PlanarFlow(d=self.d, w=w, v=v, b=b)
+
+        def loss(X: np.ndarray) -> float:
+            Y = flow.forward(X)
+            L = 0.5 * (Y**2).sum() + (self.d / 2) * np.log(2 * np.pi)
+            _, detjac, _ = flow.backward(X, np.zeros_like(X))
+            logdetjac = np.log(np.abs(detjac) + EPSILON)
+            L -= logdetjac
+            return L.sum()
+
+        X = self.X
+
+        # For each datum, check that numerical differentiation
+        # agrees with the analytical differentiation via the
+        # Flow.backward routine
+        for i in range(X.shape[0]):
+            Xi = np.array([X[i, :]])
+
+            # Evaluate partial derivatives of loss w.r.t. X
+            # via numerical differentiation
+            delta = 1e-4
+            dL_dX_num = finite_differences(loss, Xi, delta=delta)
+
+            # Evaluate via backpropagation
+            Y = flow.forward(Xi)
+            dL_dY = Y.copy()
             dL_dX_ana, _, _ = flow.backward(Xi, dL_dY)
             np.testing.assert_allclose(dL_dX_ana, dL_dX_num, atol=1e-3, rtol=1e-3)
 
@@ -142,7 +178,7 @@ class TestLinearFlow(unittest.TestCase):
             # Evaluate via backpropagation
             Y = flow.forward(Xi)
             dL_dY = Y.copy()
-            dL_dX_ana, _, _ = flow.backward(Xi, dL_dY)
+            dL_dX_ana, _, _ = flow.backward(Xi, dL_dY, normalize=False)
             np.testing.assert_allclose(dL_dX_ana, dL_dX_num, atol=1e-3, rtol=1e-3)
 
     def test_jacdet(self):
