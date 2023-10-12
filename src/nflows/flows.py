@@ -27,9 +27,13 @@ class Flow(ABC):
         samples of random variable Y."""
 
     @abstractmethod
-    def jacdet(self, X: np.ndarray) -> np.ndarray:
-        """Evaluate the Jacobian determinant for each
-        datum, returning array of shape (X.shape[0],)."""
+    def jacdet(self, X: np.ndarray) -> Tuple[np.ndarray]:
+        """For each datum, returns:
+        0: the Jacobian determinant
+        1: the derivatives of the log absolute Jacobian
+            determinant with respect to each element in
+            the input
+        """
 
     @abstractmethod
     def invert(self, Y: np.ndarray) -> np.ndarray:
@@ -69,11 +73,12 @@ class LinearFlow(Flow):
         assert X.shape[1] == self.d
         return X * self.scale + self.mean
 
-    def jacdet(self, X: np.ndarray) -> np.ndarray:
+    def jacdet(self, X: np.ndarray) -> Tuple[np.ndarray]:
         assert len(X.shape) == 2
         assert X.shape[1] == self.d
-        detj = np.prod(self.scale)
-        return np.full(X.shape[0], detj, dtype=X.dtype)
+        detjac = np.full(X.shape[0], np.prod(self.scale), dtype=X.dtype)
+        dlogdetjac_dX = np.zeros_like(X)
+        return detjac, dlogdetjac_dX
 
     def invert(self, Y: np.ndarray) -> np.ndarray:
         return (Y - self.mean) / (self.scale + EPSILON)
@@ -120,7 +125,7 @@ class PlanarFlow(Flow):
         Y = X + np.tanh(X @ w + b)[:, None] * v
         return Y
 
-    def jacdet(self, X: np.ndarray) -> np.ndarray:
+    def jacdet(self, X: np.ndarray) -> Tuple[np.ndarray]:
         """Compute the determinant of the Jacobian for each datum,
         returning an 1D ndarray of shape (X.shape[0],)."""
         assert len(X.shape) == 2
@@ -129,7 +134,12 @@ class PlanarFlow(Flow):
         v = self.v
         b = self.b
         wv = w @ v
-        return 1 + wv * (1 - np.tanh(X @ w + b) ** 2)
+        tanha = np.tanh(X @ w + b)
+        dtanha_da = 1 - tanha**2
+        ddtanha_dda = -2 * tanha * dtanha_da
+        detjac = 1 + wv * dtanha_da
+        dlogdetjac_dX = ((wv * ddtanha_dda) / (detjac + EPSILON))[:, None] * w
+        return detjac, dlogdetjac_dX
 
     def invert(self, Y: np.ndarray) -> np.ndarray:
         assert len(Y.shape) == 2
@@ -174,35 +184,6 @@ class PlanarFlow(Flow):
         # dL_dX += dlogdetjac_dX
 
         return dL_dX
-
-    def detjac(self, X: np.ndarray) -> np.ndarray:
-        """Compute the determinant of the Jacobian for each datum,
-        returning an 1D ndarray of shape (X.shape[0],)."""
-        assert len(X.shape) == 2
-        assert X.shape[1] == self.d
-        w = self.w
-        v = self.v
-        b = self.b
-        wv = w @ v
-        return 1 + wv * (1 - np.tanh(X @ w + b) ** 2)
-
-    def logdetjac(self, X: np.ndarray) -> np.ndarray:
-        return np.log(np.abs(self.detjac(X)) + EPSILON)
-
-    def dlogdetjac_dX(self, X: np.ndarray) -> np.ndarray:
-        """Partial derivatives of the log Jacobian determinant
-        with respect to each element of *X*."""
-        assert len(X.shape) == 2
-        assert X.shape[1] == self.d
-        w = self.w
-        v = self.v
-        b = self.b
-        vw = v @ w
-        tanha = np.tanh(X @ w + b)
-        dtanha_da = 1 - tanha**2
-        ddtanha_dda = -2 * tanha * dtanha_da
-        detjac = 1 + dtanha_da * vw
-        return (vw * ddtanha_dda / (detjac + EPSILON))[:, None] * w
 
 
 FLOWS = {f.__name__: f for f in [LinearFlow, PlanarFlow]}

@@ -1,7 +1,7 @@
 import numpy as np
 import unittest
 
-from nflows.constants import DTYPE
+from nflows.constants import DTYPE, EPSILON
 from nflows.flows import LinearFlow, PlanarFlow, FLOWS
 from nflows.utils import finite_differences
 
@@ -36,10 +36,7 @@ class TestPlanarFlow(unittest.TestCase):
         pars["w"][0] += 1.0
         assert abs(pars["w"][0] - flow.w[0]) < 1e-6
 
-    def test_logdetjac(self):
-        """Makes sure that the method PlanarFlow.dlogdetjac_dX
-        truly gives the derivative of Planar.logdetjac with
-        respect to its input."""
+    def test_jacdet(self):
         flow = PlanarFlow(self.d)
 
         # Values of X to test. For each of these, we
@@ -52,15 +49,15 @@ class TestPlanarFlow(unittest.TestCase):
             np.array([[1.0, 1.0, 1.0, 1.0]]),
             np.array([[-0.5, 0.5, -0.5, 0.5]]),
         ]
-        delta = 1e-3
+        delta = 1e-4
 
         for X in sample_X:
 
             def f(X: np.ndarray) -> float:
-                return flow.logdetjac(X)[0]
+                return np.log(np.abs(flow.jacdet(X)[0][0]) + EPSILON)
 
+            detjac, dlogdetjac_dX = flow.jacdet(X)
             dlogdetjac_dX_num = finite_differences(f, X, delta=delta)
-            dlogdetjac_dX = flow.dlogdetjac_dX(X)
             np.testing.assert_allclose(
                 dlogdetjac_dX, dlogdetjac_dX_num, atol=1e-4, rtol=1e-3
             )
@@ -116,9 +113,10 @@ class TestLinearFlow(unittest.TestCase):
         flow = LinearFlow(d=self.d, mean=mean, scale=scale)
         n = 3
         X = np.random.normal(size=(10, self.d)).astype(DTYPE)
-        jd = flow.jacdet(X)
+        jd, dlogdetjac_dX = flow.jacdet(X)
         assert jd.shape == (X.shape[0],)
         np.testing.assert_allclose(jd, np.prod(scale), atol=1e-4, rtol=1e-4)
+        np.testing.assert_allclose(dlogdetjac_dX, 0.0, atol=1e-4, rtol=1e-4)
 
     def test_invert(self):
         mean = np.random.normal(size=self.d).astype(DTYPE)
