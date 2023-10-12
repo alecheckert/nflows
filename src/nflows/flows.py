@@ -1,9 +1,11 @@
 """Implementations of flow layers."""
 from abc import ABC, abstractmethod
+from typing import Tuple
 import numpy as np
 
 
 DTYPE = np.float32
+EPSILON = 1e-6
 
 
 class Flow(ABC):
@@ -18,6 +20,11 @@ class Flow(ABC):
     def invert(self, Y: np.ndarray) -> np.ndarray:
         """Transform samples of random variable Y into
         samples of random variable X."""
+
+    @abstractmethod
+    def get_parameters(self) -> dict:
+        """Get a dict of all model parameters, keyed by
+        parameter name."""
 
 
 class PlanarFlow(Flow):
@@ -66,3 +73,35 @@ class PlanarFlow(Flow):
             alpha += update
         X = Y - np.tanh(alpha + b)[:, None] * v
         return X
+
+    def get_parameters(self) -> Tuple[np.ndarray]:
+        return {"w": self.w, "v": self.v, "b": self.b}
+
+    def detjac(self, X: np.ndarray) -> np.ndarray:
+        """Compute the determinant of the Jacobian for each datum,
+        returning an 1D ndarray of shape (X.shape[0],)."""
+        assert len(X.shape) == 2
+        assert X.shape[1] == self.n
+        w = self.w
+        v = self.v
+        b = self.b
+        wv = w @ v
+        return 1 + wv * (1 - np.tanh(X @ w + b) ** 2)
+
+    def logdetjac(self, X: np.ndarray) -> np.ndarray:
+        return np.log(np.abs(self.detjac(X)) + EPSILON)
+
+    def dlogdetjac_dX(self, X: np.ndarray) -> np.ndarray:
+        """Partial derivatives of the log Jacobian determinant
+        with respect to each element of *X*."""
+        assert len(X.shape) == 2
+        assert X.shape[1] == self.n
+        w = self.w
+        v = self.v
+        b = self.b
+        vw = v @ w
+        tanha = np.tanh(X @ w + b)
+        dtanha_da = 1 - tanha**2
+        ddtanha_dda = -2 * tanha * dtanha_da
+        detjac = 1 + dtanha_da * vw
+        return (vw * ddtanha_dda / (detjac + EPSILON))[:, None] * w
