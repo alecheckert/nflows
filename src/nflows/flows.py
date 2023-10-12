@@ -2,14 +2,18 @@
 from abc import ABC, abstractmethod
 from typing import Tuple
 import numpy as np
-
-
-DTYPE = np.float32
-EPSILON = 1e-6
+from .constants import DTYPE, EPSILON
 
 
 class Flow(ABC):
     """Represents an invertible operation Y = f(X)."""
+
+    @property
+    @abstractmethod
+    def shape(self) -> Tuple[int]:
+        """Shape of the inputs and outputs to this model.
+        First dimension is assumed to encode index in
+        batch (e.g. None)."""
 
     @abstractmethod
     def forward(self, X: np.ndarray) -> np.ndarray:
@@ -41,6 +45,10 @@ class PlanarFlow(Flow):
         self.w = w
         self.v = v
         self.b = b
+
+    @property
+    def shape(self) -> Tuple[int]:
+        return (None, self.n)
 
     def forward(self, X: np.ndarray) -> np.ndarray:
         assert len(X.shape) == 2
