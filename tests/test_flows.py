@@ -8,9 +8,9 @@ from nflows.utils import finite_differences
 
 class TestPlanarFlow(unittest.TestCase):
     def setUp(self):
-        np.random.seed(666)
         self.d = 4
         self.N = 10
+        np.random.seed(666)
         self.X = np.random.normal(size=(self.N, self.d)).astype(DTYPE)
 
     def test_forward(self):
@@ -65,6 +65,35 @@ class TestPlanarFlow(unittest.TestCase):
                 dlogdetjac_dX, dlogdetjac_dX_num, atol=1e-4, rtol=1e-3
             )
 
+    def test_backward(self):
+        w = np.random.normal(size=self.d).astype(DTYPE)
+        v = np.random.normal(size=self.d).astype(DTYPE)
+        b = np.random.normal()
+        flow = PlanarFlow(n=self.d, w=w, v=v, b=b)
+
+        def loss(X: np.ndarray) -> float:
+            Y = flow.forward(X)
+            return 0.5 * (Y**2).sum()
+
+        X = self.X
+
+        # For each datum, check that numerical differentiation
+        # agrees with the analytical differentiation via the
+        # Flow.backward routine
+        for i in range(X.shape[0]):
+            Xi = np.array([X[i, :]])
+
+            # Evaluate partial derivatives of loss w.r.t. X
+            # via numerical differentiation
+            delta = 1e-3
+            dL_dX_num = finite_differences(loss, Xi, delta=delta)
+
+            # Evaluate via backpropagation
+            Y = flow.forward(Xi)
+            dL_dY = Y.copy()
+            dL_dX_ana = flow.backward(Xi, dL_dY)
+            np.testing.assert_allclose(dL_dX_ana, dL_dX_num, atol=1e-3, rtol=1e-3)
+
 
 class TestLinearFlow(unittest.TestCase):
     def setUp(self):
@@ -105,13 +134,15 @@ class TestLinearFlow(unittest.TestCase):
         # agrees with the analytical differentiation via the
         # Flow.backward routine
         for i in range(X.shape[0]):
+            Xi = np.array([X[i, :]])
+
             # Evaluate partial derivatives of loss w.r.t. X
             # via numerical differentiation
             delta = 1e-3
-            dL_dX_num = finite_differences(loss, X, delta=delta)
+            dL_dX_num = finite_differences(loss, Xi, delta=delta)
 
             # Evaluate via backpropagation
-            Y = flow.forward(X)
+            Y = flow.forward(Xi)
             dL_dY = Y.copy()
-            dL_dX_ana = flow.backward(X, dL_dY)
+            dL_dX_ana = flow.backward(Xi, dL_dY)
             np.testing.assert_allclose(dL_dX_ana, dL_dX_num, atol=1e-3, rtol=1e-3)
