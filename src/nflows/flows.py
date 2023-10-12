@@ -143,6 +143,14 @@ class PlanarFlow(Flow):
         dtanha_da = 1 - tanha**2
         dyv = dL_dY @ v
         dL_dX = dL_dY + (dtanha_da * dyv)[:, None] * w
+
+        # # Contribution from log Jacobian determinant
+        # vw = v @ w
+        # ddtanha_dda = -2 * tanha * dtanha_da
+        # detJ = 1 + dtanha_da * vw
+        # dlogdetjac_dX = (-vw * ddtanha_dda / (detJ + EPSILON))[:, None] * w
+        # dL_dX += dlogdetjac_dX
+
         return dL_dX
 
     def detjac(self, X: np.ndarray) -> np.ndarray:
