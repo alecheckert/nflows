@@ -32,12 +32,18 @@ class TestModelScalar1(unittest.TestCase):
                 rtol=1e-6,
             )
 
-    def test_get_parameters(self):
+    def test_get_set_parameters(self):
         model = self.model
         params = model.get_parameters()
         assert params.shape == (self.d * 2,)
         np.testing.assert_allclose(params[: self.d], self.mean, atol=1e-6, rtol=1e-6)
         np.testing.assert_allclose(params[self.d :], self.scale, atol=1e-6, rtol=1e-6)
+
+        # Test Model.set_parameters
+        params = params * 2 + 3.0
+        model.set_parameters(params.copy())
+        params2 = model.get_parameters()
+        np.testing.assert_allclose(params, params2, atol=1e-6, rtol=1e-6)
 
     def test_forward(self):
         model = self.model

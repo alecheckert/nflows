@@ -35,12 +35,18 @@ class Model:
         return self._n_parameters
 
     def get_parameters(self) -> np.ndarray:
-        """Return all model parameters as a linear array.
-        Useful for SGD."""
+        """Return all model parameters as a linear array."""
         params = np.zeros(self.n_parameters, dtype=DTYPE)
         for (i, k), (s0, s1) in self.parameter_map.items():
             params[s0:s1] = self.flows[i].parameters[k]
         return params
+
+    def set_parameters(self, params: np.ndarray):
+        """Set all parameters of this Model. Input should be
+        a linear array of length *self.n_parameters*."""
+        assert params.shape == (self.n_parameters,)
+        for (i, k), (s0, s1) in self.parameter_map.items():
+            self.flows[i].parameters[k][:] = params[s0:s1]
 
     def forward(self, X: np.ndarray) -> np.ndarray:
         """Transform some observed data points *X* into their
