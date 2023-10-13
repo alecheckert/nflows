@@ -2,5 +2,5 @@
 Example implementation of normalizing flows in numpy
 
 ## TODO
- - Serialize/deserialize Models
- - Optimization procedure
+ - Affine coupling layers
+ - Guaranteed-invertible version of PlanarFlow (see end of Rezende & Mohamed 2015)
