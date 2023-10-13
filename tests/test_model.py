@@ -149,8 +149,19 @@ class TestModelPlanar(unittest.TestCase):
                 v, model.flows[i].parameters[k], atol=1e-6, rtol=1e-6
             )
             np.testing.assert_allclose(v, flat_params[s0:s1], atol=1e-6, rtol=1e-6)
+
             # Can modify underlying parameters by reference
             v += np.ones(v.shape, dtype=DTYPE)
             np.testing.assert_allclose(
                 v, model.flows[i].parameters[k], atol=1e-6, rtol=1e-6
             )
+
+    def test_set_parameters(self):
+        model = self.model
+        params = model.get_parameters(flat=True)
+        update = np.random.normal(size=params.shape).astype(params.dtype)
+        params1 = params + update
+        model.set_parameters(params1)
+        np.testing.assert_allclose(
+            model.get_parameters(flat=True), params1, atol=1e-6, rtol=1e-6
+        )
