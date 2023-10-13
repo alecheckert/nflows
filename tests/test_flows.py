@@ -3,7 +3,7 @@ import unittest
 
 from nflows.constants import DTYPE, EPSILON
 from nflows.flows import ScalarFlow, PlanarFlow, FLOWS
-from nflows.utils import finite_differences
+from nflows.utils import finite_differences, numerical_jacdet
 
 
 class TestPlanarFlow(unittest.TestCase):
@@ -309,3 +309,31 @@ class TestParameterMutability(unittest.TestCase):
                 for i in range(v.shape[0]):
                     v[i] += 10.0
                     assert abs(getattr(flow, k)[i] - v[i]) < 1e-6
+
+
+class TestJacDet(unittest.TestCase):
+    """Test accuracy of Jacobian determinant calculation for
+    all Flows."""
+
+    def test_jac_det(self):
+        d = 4
+        N = 10
+        delta = 1e-4
+        X = np.random.normal(size=(N, d)).astype(DTYPE)
+        for flow_name, flow_cls in FLOWS.items():
+            flow = flow_cls(d)
+
+            # Evaluate Jacobian determinants analytically
+            Y, jacdetana = flow.forward(X)
+
+            # Evaluate Jacobian determinants numerically
+            def f(x):
+                X = np.array([x])
+                Y, _ = flow.forward(X)
+                return Y[0, :]
+
+            jacdetnum = np.zeros(N, dtype=DTYPE)
+            for i in range(N):
+                jacdetnum[i] = numerical_jacdet(f, X[i, :], delta=delta)
+
+            np.testing.assert_allclose(jacdetana, jacdetnum, atol=1e-5, rtol=1e-5)
