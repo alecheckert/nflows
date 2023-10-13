@@ -116,10 +116,12 @@ class Model:
         dL_dX = Y.copy()
 
         # Backpropagate through all parameters
-        dL_dpars = {}
+        dL_dpars = np.zeros(self.n_parameters, dtype=X.dtype)
         for i in list(range(len(self.flows)))[::-1]:
             flow = self.flows[i]
             dL_dX, _, dL_dpars_i = flow.backward(values[i], dL_dX)
-            dL_dpars[i] = dL_dpars_i
+            for k in dL_dpars_i:
+                s0, s1 = self.parameter_map[(i, k)]
+                dL_dpars[s0:s1] = dL_dpars_i[k]
 
         return L, dL_dX, dL_dpars

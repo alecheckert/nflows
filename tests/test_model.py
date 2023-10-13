@@ -71,7 +71,7 @@ class TestModelScalar1(unittest.TestCase):
         flow = self.flow
         X = self.X.copy()
         delta = 1e-4
-        loss, dL_dX_ana, dL_dpars = model.backward(X)
+        loss, dL_dX_ana, dL_dpars_ana = model.backward(X)
 
         # Does not modify input
         np.testing.assert_allclose(X, self.X, atol=1e-6, rtol=1e-6)
@@ -93,6 +93,12 @@ class TestModelScalar1(unittest.TestCase):
         dL_dX_num = finite_differences(f, X, delta=delta)
         np.testing.assert_allclose(dL_dX_ana, dL_dX_num, atol=1e-5, rtol=1e-5)
 
-        # TODO:
-        # - add test for agreement between analytical and numerical
-        #   gradient
+        # Test for numerical accuracy of derivatives of loss w.r.t. parameters
+        def f(params: np.ndarray) -> float:
+            model.set_parameters(params)
+            L, _, _ = model.backward(X)
+            return L.mean()
+
+        params = model.get_parameters()
+        dL_dpars_num = finite_differences(f, params, delta=delta)
+        np.testing.assert_allclose(dL_dpars_ana, dL_dpars_num, atol=1e-4, rtol=1e-3)
