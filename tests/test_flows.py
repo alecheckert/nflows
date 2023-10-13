@@ -133,10 +133,12 @@ class TestScalarFlow(unittest.TestCase):
     def setUp(self):
         self.d = 4
         np.random.seed(666)
+        self.mean = np.random.normal(size=self.d).astype(DTYPE)
+        self.scale = np.random.normal(size=self.d).astype(DTYPE)
 
     def test_parameters(self):
-        mean = np.random.normal(size=self.d).astype(DTYPE)
-        scale = np.random.normal(size=self.d).astype(DTYPE)
+        mean = self.mean
+        scale = self.scale
         flow = ScalarFlow(d=self.d, mean=mean, scale=scale)
         pars = flow.parameters
         assert pars["mean"] is flow.mean
@@ -145,8 +147,8 @@ class TestScalarFlow(unittest.TestCase):
         np.testing.assert_allclose(pars["scale"], flow.scale, atol=1e-5, rtol=1e-5)
 
     def test_invert(self):
-        mean = np.random.normal(size=self.d).astype(DTYPE)
-        scale = np.random.normal(size=self.d).astype(DTYPE)
+        mean = self.mean
+        scale = self.scale
         flow = ScalarFlow(d=self.d, mean=mean, scale=scale)
         X = np.random.normal(size=(10, self.d)).astype(DTYPE)
         Y = flow.forward(X)
@@ -154,8 +156,8 @@ class TestScalarFlow(unittest.TestCase):
         np.testing.assert_allclose(Z, X, atol=1e-4, rtol=1e-4)
 
     def test_backward(self):
-        mean = np.random.normal(size=self.d).astype(DTYPE)
-        scale = np.random.normal(size=self.d).astype(DTYPE)
+        mean = self.mean
+        scale = self.scale
         flow = ScalarFlow(d=self.d, mean=mean, scale=scale)
 
         def loss(X: np.ndarray) -> float:
@@ -178,18 +180,18 @@ class TestScalarFlow(unittest.TestCase):
             # Evaluate via backpropagation
             Y = flow.forward(Xi)
             dL_dY = Y.copy()
-            dL_dX_ana, _, _ = flow.backward(Xi, dL_dY, normalize=False)
+            dL_dX_ana, _, _, _ = flow.backward(Xi, dL_dY, normalize=False)
             np.testing.assert_allclose(dL_dX_ana, dL_dX_num, atol=1e-3, rtol=1e-3)
 
     def test_backward_full_loss(self):
-        mean = np.random.normal(size=self.d).astype(DTYPE)
-        scale = np.random.normal(size=self.d).astype(DTYPE)
+        mean = self.mean
+        scale = self.scale
         flow = ScalarFlow(d=self.d, mean=mean, scale=scale)
 
         def loss(X: np.ndarray) -> float:
             Y = flow.forward(X)
             L = 0.5 * (Y**2) + (self.d / 2) * np.log(2 * np.pi)
-            _, detjac, _ = flow.backward(X, np.zeros_like(X))
+            _, detjac, _, _ = flow.backward(X, np.zeros_like(X))
             logdetjac = np.log(np.abs(detjac) + EPSILON)
             L -= logdetjac
             return L.sum()
@@ -210,19 +212,50 @@ class TestScalarFlow(unittest.TestCase):
             # Evaluate via backpropagation
             Y = flow.forward(Xi)
             dL_dY = Y.copy()
-            dL_dX_ana, _, _ = flow.backward(Xi, dL_dY)
+            dL_dX_ana, _, _, _ = flow.backward(Xi, dL_dY)
             np.testing.assert_allclose(dL_dX_ana, dL_dX_num, atol=1e-3, rtol=1e-3)
 
     def test_jacdet(self):
-        mean = np.random.normal(size=self.d).astype(DTYPE)
-        scale = np.random.normal(size=self.d).astype(DTYPE)
+        mean = self.mean
+        scale = self.scale
         flow = ScalarFlow(d=self.d, mean=mean, scale=scale)
         n = 3
         X = np.random.normal(size=(1, self.d)).astype(DTYPE)
-        _, jd, dlogdetjac_dX = flow.backward(X, np.zeros_like(X))
+        _, jd, dlogdetjac_dX, _ = flow.backward(X, np.zeros_like(X))
         assert jd.shape == (X.shape[0],)
         np.testing.assert_allclose(jd, np.prod(scale), atol=1e-4, rtol=1e-4)
         np.testing.assert_allclose(dlogdetjac_dX, 0.0, atol=1e-4, rtol=1e-4)
+
+    def test_gradient(self):
+        mean = self.mean
+        scale = self.scale
+        n = 10
+        X = np.random.normal(size=(n, self.d)).astype(DTYPE)
+
+        def loss(pars: np.ndarray) -> float:
+            mean = pars[: self.d]
+            scale = pars[self.d :]
+            flow = ScalarFlow(d=self.d, mean=mean, scale=scale)
+            Y = flow.forward(X)
+            L = 0.5 * (Y**2).sum(axis=1) + (self.d / 2) * np.log(2 * np.pi)
+            dL_dY = Y.copy()
+            _, detjac, _, _ = flow.backward(X, dL_dY)
+            logdetjac = np.log(np.abs(detjac) + EPSILON)
+            L -= logdetjac
+            return L.mean()
+
+        pars = np.concatenate([mean, scale])
+        delta = 1e-3
+        dL_dpars_num = finite_differences(loss, pars, delta=delta)
+
+        # Analytical loss
+        flow = ScalarFlow(d=self.d, mean=mean, scale=scale)
+        Y = flow.forward(X)
+        L = 0.5 * (Y**2).sum(axis=1) + (self.d / 2) * np.log(2 * np.pi)
+        dL_dY = Y.copy()
+        _, _, _, dL_dpars_ana = flow.backward(X, dL_dY)
+        dL_dpars_ana = np.concatenate([dL_dpars_ana["mean"], dL_dpars_ana["scale"]])
+        np.testing.assert_allclose(dL_dpars_ana, dL_dpars_num, atol=1e-3, rtol=1e-3)
 
 
 class TestParameterMutability(unittest.TestCase):

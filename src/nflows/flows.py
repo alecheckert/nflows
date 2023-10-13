@@ -104,7 +104,10 @@ class ScalarFlow(Flow):
         dlogdetjac_dX = np.zeros_like(X)
         # if normalize:  # meaningless for ScalarFlow
         #     dL_dX -= dlogdetjac_dX
-        return dL_dX, detjac, dlogdetjac_dX
+        dL_dpars = {}
+        dL_dpars["mean"] = dL_dY.mean(axis=0)
+        dL_dpars["scale"] = (dL_dY * X).mean(axis=0) - 1 / (a + np.sign(a) * EPSILON)
+        return dL_dX, detjac, dlogdetjac_dX, dL_dpars
 
 
 class PlanarFlow(Flow):
