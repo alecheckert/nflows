@@ -22,9 +22,21 @@ class Flow(ABC):
         parameter name."""
 
     @abstractmethod
-    def forward(self, X: np.ndarray) -> np.ndarray:
+    def forward(self, X: np.ndarray) -> Tuple[np.ndarray]:
         """Transform samples of random variable X into
-        samples of random variable Y."""
+        samples of random variable Y.
+
+        Parameters
+        ----------
+        X   :   input to this Flow; first dimension is assumed
+                to encode different samples
+
+        Returns
+        -------
+        0:  Y, output of this flow
+        1:  Jacobian determinant for each sample; ndarray of
+            shape (X.shape[0],)
+        """
 
     @abstractmethod
     def invert(self, Y: np.ndarray) -> np.ndarray:
@@ -84,10 +96,12 @@ class ScalarFlow(Flow):
     def parameters(self) -> dict:
         return {"mean": self.mean, "scale": self.scale}
 
-    def forward(self, X: np.ndarray) -> np.ndarray:
+    def forward(self, X: np.ndarray) -> Tuple[np.ndarray]:
         assert len(X.shape) == 2
         assert X.shape[1] == self.d
-        return X * self.scale + self.mean
+        Y = X * self.scale + self.mean
+        detjac = np.full(X.shape[0], np.prod(self.scale), dtype=X.dtype)
+        return Y, detjac
 
     def invert(self, Y: np.ndarray) -> np.ndarray:
         return (Y - self.mean) / (self.scale + EPSILON)
@@ -134,14 +148,18 @@ class PlanarFlow(Flow):
     def parameters(self) -> Tuple[np.ndarray]:
         return {"w": self.w, "v": self.v, "b": self.b}
 
-    def forward(self, X: np.ndarray) -> np.ndarray:
+    def forward(self, X: np.ndarray) -> Tuple[np.ndarray]:
         assert len(X.shape) == 2
         assert X.shape[1] == self.d
         w = self.w
         v = self.v
         b = self.b
-        Y = X + np.tanh(X @ w + b)[:, None] * v
-        return Y
+        tanha = np.tanh(X @ w + b)
+        Y = X + tanha[:, None] * v
+        wv = w @ v
+        dtanha_da = 1 - tanha**2
+        detjac = 1 + wv * dtanha_da
+        return Y, detjac
 
     def invert(self, Y: np.ndarray) -> np.ndarray:
         assert len(Y.shape) == 2
