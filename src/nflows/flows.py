@@ -129,7 +129,7 @@ class ScalarFlow(Flow):
         return Y, detjac
 
     def invert(self, Y: np.ndarray) -> np.ndarray:
-        return (Y - self.mean) / (self.scale + EPSILON)
+        return (Y - self.mean) / (self.scale + np.sign(self.scale) * EPSILON)
 
     def backward(
         self, X: np.ndarray, dL_dY: np.ndarray, normalize: bool = True

@@ -7,4 +7,4 @@ package-dir = ["src"]
 [project]
 name = "nflows"
 version = "0.0.1"
-dependencies = ["numpy", "pytest", "black"]
+dependencies = ["numpy", "pandas"]
