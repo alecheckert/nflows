@@ -30,4 +30,5 @@ def finite_differences(f: Callable, X: np.ndarray, delta: float = 1e-3) -> np.nd
         Xflat[i] = base + hd
         f1 = f(Xflat.reshape(X.shape))
         df_dX[i] = (f1 - f0) / delta
+        Xflat[i] = base
     return df_dX.reshape(X.shape)
