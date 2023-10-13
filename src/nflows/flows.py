@@ -174,18 +174,42 @@ class PlanarFlow(Flow):
         w = self.w
         v = self.v
         b = self.b
+
+        # Gradient of loss with respect to inputs to this Flow
         a = X @ w + b
         tanha = np.tanh(a)
         dtanha_da = 1 - tanha**2
         ddtanha_dda = -2 * tanha * dtanha_da
         dyv = dL_dY @ v
         dL_dX = dL_dY + (dtanha_da * dyv)[:, None] * w
+
+        # Jacobian determinant
         wv = w @ v
         detjac = 1 + wv * dtanha_da
+
+        # Gradient of loss with respect to log Jacobian determinant
         dlogdetjac_dX = ((wv * ddtanha_dda) / (detjac + EPSILON))[:, None] * w
         if normalize:
             dL_dX -= dlogdetjac_dX
-        return dL_dX, detjac, dlogdetjac_dX
+
+        # Gradient of loss with respect to all parameters of this Flow
+        dL_dpars = {}
+        invdetjac = 1 / (detjac + np.sign(detjac) * EPSILON)
+        dL_dpars["w"] = (
+            ((dL_dY @ v) * dtanha_da)[:, None] * X
+            - (
+                (dtanha_da * invdetjac)[:, None] * v
+                + wv * (ddtanha_dda * invdetjac)[:, None] * X
+            )
+        ).mean(axis=0)
+        dL_dpars["v"] = (
+            tanha[:, None] * dL_dY - (dtanha_da * invdetjac)[:, None] * w
+        ).mean(axis=0)
+        dL_dpars["b"] = ((dL_dY @ v) * dtanha_da - wv * ddtanha_dda * invdetjac)[
+            :, None
+        ].mean(axis=0)
+
+        return dL_dX, detjac, dlogdetjac_dX, dL_dpars
 
 
 FLOWS = {f.__name__: f for f in [ScalarFlow, PlanarFlow]}
