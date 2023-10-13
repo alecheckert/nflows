@@ -98,8 +98,17 @@ class Model:
         return self.invert(Y)
 
     def backward(self, X: np.ndarray) -> np.ndarray:
-        """Run a full forward and backward propagation on a set
-        of data points.
+        """Evaluate the derivatives of all parameters in this Model
+        with respect to the mean negative log likelihood of all data
+        points.
+
+        For a normalizing flow, this can be expressed
+
+            -log p(X) = -log p(Y) - log|detJ1| - ... - log|detJN|
+
+        where X are the observed data points, Y is their latent space
+        representation, and J1, ..., JN are the Jacobians for each
+        (forward) transformation in the Model.
 
         Parameters
         ----------
