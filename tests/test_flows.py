@@ -13,13 +13,13 @@ class TestPlanarFlow(unittest.TestCase):
         np.random.seed(666)
         self.X = np.random.normal(size=(self.N, self.d)).astype(DTYPE)
 
-    def test_from_parameters(self):
+    def test_from_shape(self):
         d = self.d
         w = np.random.normal(size=d).astype(DTYPE)
         v = np.random.normal(size=d).astype(DTYPE)
         b = np.random.normal(size=1).astype(DTYPE)
         params = np.concatenate([w, v, b])
-        flow = PlanarFlow.from_parameters((d,), params)
+        flow = PlanarFlow.from_shape((d,), params)
         assert flow.d == d
         np.testing.assert_allclose(flow.w, w, atol=1e-6, rtol=1e-6)
         np.testing.assert_allclose(flow.v, v, atol=1e-6, rtol=1e-6)
@@ -184,10 +184,10 @@ class TestScalarFlow(unittest.TestCase):
         self.mean = np.random.normal(size=self.d).astype(DTYPE)
         self.scale = np.random.normal(size=self.d).astype(DTYPE)
 
-    def test_from_parameters(self):
+    def test_from_shape(self):
         d = self.d
         params = np.concatenate([self.mean, self.scale])
-        flow = ScalarFlow.from_parameters((d,), params)
+        flow = ScalarFlow.from_shape((d,), params)
         assert flow.d == self.d
         np.testing.assert_allclose(flow.mean, self.mean, atol=1e-6, rtol=1e-6)
         np.testing.assert_allclose(flow.scale, self.scale, atol=1e-6, rtol=1e-6)

@@ -11,9 +11,11 @@ class Flow(ABC):
 
     @classmethod
     @abstractmethod
-    def from_parameters(cls, shape: tuple, params: np.ndarray):
+    def from_shape(cls, shape: tuple, params: np.ndarray = None):
         """Make an instance of this Flow class from a shape and
-        a linear array of parameters. Useful for deserialization."""
+        a linear array of parameters. Useful for deserialization.
+        If *params* is not passed, should instantiate with suitable
+        defaults."""
 
     @property
     @abstractmethod
@@ -97,15 +99,18 @@ class ScalarFlow(Flow):
         self.scale = scale
 
     @classmethod
-    def from_parameters(cls, shape: tuple, params: np.ndarray):
+    def from_shape(cls, shape: tuple, params: np.ndarray = None):
         assert isinstance(shape, tuple)
-        assert isinstance(params, np.ndarray)
-        assert len(params.shape) == 1
         assert len(shape) == 1
         d = shape[0]
-        assert params.shape == (2 * d,)
-        mean = params[:d]
-        scale = params[d:]
+        mean = None
+        scale = None
+        if params is not None:
+            assert isinstance(params, np.ndarray)
+            assert len(params.shape) == 1
+            assert params.shape == (2 * d,)
+            mean = params[:d]
+            scale = params[d:]
         return cls(shape[0], mean=mean, scale=scale)
 
     @property
@@ -160,16 +165,20 @@ class PlanarFlow(Flow):
         self.b = b
 
     @classmethod
-    def from_parameters(cls, shape: tuple, params: np.ndarray):
+    def from_shape(cls, shape: tuple, params: np.ndarray = None):
         assert isinstance(shape, tuple)
-        assert isinstance(params, np.ndarray)
         assert len(shape) == 1
-        assert len(params.shape) == 1
         d = shape[0]
-        assert params.shape == (2 * d + 1,)
-        w = params[:d]
-        v = params[d : 2 * d]
-        b = params[2 * d :]
+        w = None
+        v = None
+        b = None
+        if params is not None:
+            assert isinstance(params, np.ndarray)
+            assert len(params.shape) == 1
+            assert params.shape == (2 * d + 1,)
+            w = params[:d]
+            v = params[d : 2 * d]
+            b = params[2 * d :]
         return cls(d, w=w, v=v, b=b)
 
     @property
