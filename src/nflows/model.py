@@ -12,6 +12,14 @@ class Model:
             assert isinstance(flow, Flow)
             assert flow.shape == self._shape
 
+        # Map model parameters into indices of a linear array
+        n_parameters = 0
+        self.parameter_map = {}
+        for i, flow in enumerate(flows):
+            for k, v in flow.parameters.items():
+                self.parameter_map[(i, k)] = (n_parameters, n_parameters + v.size)
+                n_parameters += v.size
+        self._n_parameters = n_parameters
         self._flows = flows
 
     @property
@@ -21,6 +29,18 @@ class Model:
     @property
     def flows(self) -> List[Flow]:
         return self._flows
+
+    @property
+    def n_parameters(self) -> int:
+        return self._n_parameters
+
+    def get_parameters(self) -> np.ndarray:
+        """Return all model parameters as a linear array.
+        Useful for SGD."""
+        params = np.zeros(self.n_parameters, dtype=DTYPE)
+        for (i, k), (s0, s1) in self.parameter_map.items():
+            params[s0:s1] = self.flows[i].parameters[k]
+        return params
 
     def forward(self, X: np.ndarray) -> np.ndarray:
         """Transform some observed data points *X* into their

@@ -14,8 +14,8 @@ class TestModelScalar1(unittest.TestCase):
         np.random.seed(666)
         self.d = 4
         self.N = 10
-        self.scale = np.random.normal(scale=2, size=self.d).astype(DTYPE)
         self.mean = np.random.normal(scale=2, size=self.d).astype(DTYPE)
+        self.scale = np.random.normal(scale=2, size=self.d).astype(DTYPE)
         self.X = np.random.normal(size=(self.N, self.d)).astype(DTYPE)
         self.flow = ScalarFlow(self.d, mean=self.mean, scale=self.scale)
         self.model = Model(flows=[self.flow])
@@ -31,6 +31,13 @@ class TestModelScalar1(unittest.TestCase):
                 atol=1e-6,
                 rtol=1e-6,
             )
+
+    def test_get_parameters(self):
+        model = self.model
+        params = model.get_parameters()
+        assert params.shape == (self.d * 2,)
+        np.testing.assert_allclose(params[: self.d], self.mean, atol=1e-6, rtol=1e-6)
+        np.testing.assert_allclose(params[self.d :], self.scale, atol=1e-6, rtol=1e-6)
 
     def test_forward(self):
         model = self.model
