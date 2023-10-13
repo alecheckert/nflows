@@ -2,7 +2,7 @@ import numpy as np
 import unittest
 
 from nflows.constants import DTYPE, EPSILON
-from nflows.flows import LinearFlow, PlanarFlow, FLOWS
+from nflows.flows import ScalarFlow, PlanarFlow, FLOWS
 from nflows.utils import finite_differences
 
 
@@ -129,7 +129,7 @@ class TestPlanarFlow(unittest.TestCase):
             np.testing.assert_allclose(dL_dX_ana, dL_dX_num, atol=1e-3, rtol=1e-3)
 
 
-class TestLinearFlow(unittest.TestCase):
+class TestScalarFlow(unittest.TestCase):
     def setUp(self):
         self.d = 4
         np.random.seed(666)
@@ -137,7 +137,7 @@ class TestLinearFlow(unittest.TestCase):
     def test_parameters(self):
         mean = np.random.normal(size=self.d).astype(DTYPE)
         scale = np.random.normal(size=self.d).astype(DTYPE)
-        flow = LinearFlow(d=self.d, mean=mean, scale=scale)
+        flow = ScalarFlow(d=self.d, mean=mean, scale=scale)
         pars = flow.parameters
         assert pars["mean"] is flow.mean
         assert pars["scale"] is flow.scale
@@ -147,7 +147,7 @@ class TestLinearFlow(unittest.TestCase):
     def test_invert(self):
         mean = np.random.normal(size=self.d).astype(DTYPE)
         scale = np.random.normal(size=self.d).astype(DTYPE)
-        flow = LinearFlow(d=self.d, mean=mean, scale=scale)
+        flow = ScalarFlow(d=self.d, mean=mean, scale=scale)
         X = np.random.normal(size=(10, self.d)).astype(DTYPE)
         Y = flow.forward(X)
         Z = flow.invert(Y)
@@ -156,7 +156,7 @@ class TestLinearFlow(unittest.TestCase):
     def test_backward(self):
         mean = np.random.normal(size=self.d).astype(DTYPE)
         scale = np.random.normal(size=self.d).astype(DTYPE)
-        flow = LinearFlow(d=self.d, mean=mean, scale=scale)
+        flow = ScalarFlow(d=self.d, mean=mean, scale=scale)
 
         def loss(X: np.ndarray) -> float:
             Y = flow.forward(X)
@@ -184,7 +184,7 @@ class TestLinearFlow(unittest.TestCase):
     def test_backward_full_loss(self):
         mean = np.random.normal(size=self.d).astype(DTYPE)
         scale = np.random.normal(size=self.d).astype(DTYPE)
-        flow = LinearFlow(d=self.d, mean=mean, scale=scale)
+        flow = ScalarFlow(d=self.d, mean=mean, scale=scale)
 
         def loss(X: np.ndarray) -> float:
             Y = flow.forward(X)
@@ -216,7 +216,7 @@ class TestLinearFlow(unittest.TestCase):
     def test_jacdet(self):
         mean = np.random.normal(size=self.d).astype(DTYPE)
         scale = np.random.normal(size=self.d).astype(DTYPE)
-        flow = LinearFlow(d=self.d, mean=mean, scale=scale)
+        flow = ScalarFlow(d=self.d, mean=mean, scale=scale)
         n = 3
         X = np.random.normal(size=(1, self.d)).astype(DTYPE)
         _, jd, dlogdetjac_dX = flow.backward(X, np.zeros_like(X))

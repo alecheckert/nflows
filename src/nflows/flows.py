@@ -64,7 +64,7 @@ class Flow(ABC):
         """
 
 
-class LinearFlow(Flow):
+class ScalarFlow(Flow):
     def __init__(self, d: int, mean=None, scale=None):
         self.d = d
         if mean is None:
@@ -102,7 +102,7 @@ class LinearFlow(Flow):
         dL_dX = dL_dY * a
         detjac = np.full(X.shape[0], np.prod(self.scale), dtype=X.dtype)
         dlogdetjac_dX = np.zeros_like(X)
-        # if normalize:  # meaningless for LinearFlow
+        # if normalize:  # meaningless for ScalarFlow
         #     dL_dX -= dlogdetjac_dX
         return dL_dX, detjac, dlogdetjac_dX
 
@@ -185,4 +185,4 @@ class PlanarFlow(Flow):
         return dL_dX, detjac, dlogdetjac_dX
 
 
-FLOWS = {f.__name__: f for f in [LinearFlow, PlanarFlow]}
+FLOWS = {f.__name__: f for f in [ScalarFlow, PlanarFlow]}
