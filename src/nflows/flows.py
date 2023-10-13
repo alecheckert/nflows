@@ -9,6 +9,12 @@ from .constants import DTYPE, EPSILON
 class Flow(ABC):
     """Represents an invertible operation Y = f(X)."""
 
+    @classmethod
+    @abstractmethod
+    def from_parameters(cls, shape: tuple, params: np.ndarray):
+        """Make an instance of this Flow class from a shape and
+        a linear array of parameters. Useful for deserialization."""
+
     @property
     @abstractmethod
     def shape(self) -> Tuple[int]:
@@ -90,6 +96,18 @@ class ScalarFlow(Flow):
         self.mean = mean
         self.scale = scale
 
+    @classmethod
+    def from_parameters(cls, shape: tuple, params: np.ndarray):
+        assert isinstance(shape, tuple)
+        assert isinstance(params, np.ndarray)
+        assert len(params.shape) == 1
+        assert len(shape) == 1
+        d = shape[0]
+        assert params.shape == (2 * d,)
+        mean = params[:d]
+        scale = params[d:]
+        return cls(shape[0], mean=mean, scale=scale)
+
     @property
     def shape(self) -> Tuple[int]:
         return (None, self.d)
@@ -140,6 +158,19 @@ class PlanarFlow(Flow):
         self.w = w
         self.v = v
         self.b = b
+
+    @classmethod
+    def from_parameters(cls, shape: tuple, params: np.ndarray):
+        assert isinstance(shape, tuple)
+        assert isinstance(params, np.ndarray)
+        assert len(shape) == 1
+        assert len(params.shape) == 1
+        d = shape[0]
+        assert params.shape == (2 * d + 1,)
+        w = params[:d]
+        v = params[d : 2 * d]
+        b = params[2 * d :]
+        return cls(d, w=w, v=v, b=b)
 
     @property
     def shape(self) -> Tuple[int]:
