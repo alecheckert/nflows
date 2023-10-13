@@ -2,7 +2,7 @@ import numpy as np
 import unittest
 
 from nflows.constants import DTYPE, EPSILON
-from nflows.flows import AffineFlow, PlanarFlow, FLOWS
+from nflows.flows import AffineFlow, PlanarFlow, Permutation, FLOWS
 from nflows.model import Model
 from nflows.utils import finite_differences, numerical_jacdet
 
@@ -312,6 +312,37 @@ class TestAffineFlow(unittest.TestCase):
         _, _, dL_dpars_ana = flow.backward(X, dL_dY)
         dL_dpars_ana = np.concatenate([dL_dpars_ana["mean"], dL_dpars_ana["scale"]])
         np.testing.assert_allclose(dL_dpars_ana, dL_dpars_num, atol=1e-3, rtol=1e-3)
+
+
+class TestPermutation(unittest.TestCase):
+    def test_permutation(self):
+        d = 4
+        N = 10
+        order = np.array([3, 1, 0, 2])
+        X = np.random.randint(-10, 10, size=(N, d)).astype(DTYPE)
+        flow = Permutation(d, order=order)
+        Y, detjac = flow.forward(X)
+        np.testing.assert_allclose(X[:, 3], Y[:, 0], atol=1e-6, rtol=1e-6)
+        np.testing.assert_allclose(X[:, 1], Y[:, 1], atol=1e-6, rtol=1e-6)
+        np.testing.assert_allclose(X[:, 0], Y[:, 2], atol=1e-6, rtol=1e-6)
+        np.testing.assert_allclose(X[:, 2], Y[:, 3], atol=1e-6, rtol=1e-6)
+        np.testing.assert_allclose(
+            np.abs(detjac), np.ones(N, dtype=DTYPE), atol=1e-6, rtol=1e-6
+        )
+        Z = flow.invert(Y)
+        np.testing.assert_allclose(Z, X, atol=1e-6, rtol=1e-6)
+        dL_dY = np.random.randint(-10, 10, size=(N, d)).astype(DTYPE)
+        dL_dX, dlogdetjac_dX, dL_dpars = flow.backward(X, dL_dY)
+        np.testing.assert_allclose(dL_dX[:, 3], dL_dY[:, 0], atol=1e-6, rtol=1e-6)
+        np.testing.assert_allclose(dL_dX[:, 1], dL_dY[:, 1], atol=1e-6, rtol=1e-6)
+        np.testing.assert_allclose(dL_dX[:, 0], dL_dY[:, 2], atol=1e-6, rtol=1e-6)
+        np.testing.assert_allclose(dL_dX[:, 2], dL_dY[:, 3], atol=1e-6, rtol=1e-6)
+        np.testing.assert_allclose(
+            dlogdetjac_dX, np.zeros((N, d), dtype=DTYPE), atol=1e-6, rtol=1e-6
+        )
+        np.testing.assert_allclose(
+            dL_dpars["order"], np.zeros(d, dtype=DTYPE), atol=1e-6, rtol=1e-6
+        )
 
 
 class TestParameterMutability(unittest.TestCase):
