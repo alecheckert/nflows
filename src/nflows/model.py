@@ -88,7 +88,7 @@ class Model:
     def invert(self, Y: np.ndarray) -> np.ndarray:
         """Given some data points from the latent space *Y*,
         transform into the data space *X*."""
-        for flow in self.flows:
+        for flow in self.flows[::-1]:
             Y = flow.invert(Y)
         return Y
 

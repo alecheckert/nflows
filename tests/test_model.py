@@ -165,3 +165,69 @@ class TestModelPlanar(unittest.TestCase):
         np.testing.assert_allclose(
             model.get_parameters(flat=True), params1, atol=1e-6, rtol=1e-6
         )
+
+    def test_forward(self):
+        model = self.model
+        X = self.X.copy()
+        Y = model.forward(X)
+
+        # Does not modify input
+        np.testing.assert_allclose(X, self.X, atol=1e-6, rtol=1e-6)
+
+        # Agrees with the "hand" calculation
+        Y1, _ = model.flows[0].forward(X)
+        Y2, _ = model.flows[1].forward(Y1)
+        np.testing.assert_allclose(Y, Y2, atol=1e-6, rtol=1e-6)
+
+    def test_invert(self):
+        model = self.model
+        X = self.X
+        Y = model.forward(X)
+        Z = model.invert(Y)
+        np.testing.assert_allclose(Z, X, atol=1e-4, rtol=1e-4)
+
+    def test_generate(self):
+        model = self.model
+        N = 8
+        X = model.generate(N)
+        assert isinstance(X, np.ndarray)
+        assert X.shape == (N, self.d)
+        assert np.isfinite(X).all()
+
+    def test_backward(self):
+        model = self.model
+        X = self.X
+        delta = 1e-4
+        loss, dL_dX_ana, dL_dpars_ana = model.backward(X)
+
+        # Does not modify input
+        np.testing.assert_allclose(X, self.X, atol=1e-6, rtol=1e-6)
+
+        # Check accuracy of loss value
+        Y, dJ0 = model.flows[0].forward(X)
+        Y, dJ1 = model.flows[1].forward(Y)
+        loss_expected = (
+            0.5 * (Y**2).sum(axis=1)
+            + (self.d / 2) * np.log(2 * np.pi)
+            - np.log(np.abs(dJ0) + EPSILON)
+            - np.log(np.abs(dJ1) + EPSILON)
+        )
+        np.testing.assert_allclose(loss, loss_expected, atol=1e-5, rtol=1e-5)
+
+        # Test for numerical accuracy of derivatives of loss w.r.t. input
+        def f(X: np.ndarray) -> float:
+            L, _, _ = model.backward(X)
+            return L.sum()
+
+        dL_dX_num = finite_differences(f, X, delta=delta)
+        np.testing.assert_allclose(dL_dX_ana, dL_dX_num, atol=1e-5, rtol=1e-5)
+
+        # Test for numerical accuracy of derivatives of loss w.r.t. parameters
+        def f(params: np.ndarray) -> float:
+            model.set_parameters(params)
+            L, _, _ = model.backward(X)
+            return L.mean()
+
+        params = model.get_parameters(flat=True)
+        dL_dpars_num = finite_differences(f, params, delta=delta)
+        np.testing.assert_allclose(dL_dpars_ana, dL_dpars_num, atol=1e-4, rtol=1e-3)
