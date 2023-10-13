@@ -3,6 +3,7 @@ import unittest
 
 from nflows.constants import DTYPE, EPSILON
 from nflows.flows import AffineFlow, PlanarFlow, FLOWS
+from nflows.model import Model
 from nflows.utils import finite_differences, numerical_jacdet
 
 
@@ -319,9 +320,14 @@ class TestParameterMutability(unittest.TestCase):
     parameters update the actual parameters in the relevant Flow
     instance."""
 
+    # Flows with intentionally static parameters
+    EXCLUDE = ["Permutation"]
+
     def test_parameter_mutability(self):
         d = 4
         for flow_name, flow_cls in FLOWS.items():
+            if flow_name in self.EXCLUDE:
+                continue
             flow = flow_cls(d)
             pars = flow.parameters
             for k, v in pars.items():
@@ -376,3 +382,33 @@ class TestInversion(unittest.TestCase):
             Y, _ = flow.forward(X)
             Z = flow.invert(Y)
             np.testing.assert_allclose(Z, X, atol=1e-5, rtol=1e-5)
+
+
+class TestGradient(unittest.TestCase):
+    """Test that we can compute gradients of model parameters
+    for all Flows. We use the tools from the Model class for
+    this test."""
+
+    def setUp(self):
+        np.random.seed(666)
+
+    def test_gradient(self):
+        d = 4
+        N = 10
+        delta = 1e-4
+        X = np.random.normal(size=(N, d)).astype(DTYPE)
+        for flow_name, flow_cls in FLOWS.items():
+            flow = flow_cls(d)
+            model = Model([flow])
+            _, _, dL_dpars_ana = model.backward(X)
+
+            def loss(params: np.ndarray) -> float:
+                model.set_parameters(params)
+                Y, dJ = flow.forward(X)
+                L = 0.5 * (Y**2).sum(axis=1) + (d / 2) * np.log(2 * np.pi)
+                L -= np.log(np.abs(dJ) + EPSILON)
+                return L.mean()
+
+            params = model.get_parameters(flat=True)
+            dL_dpars_num = finite_differences(loss, params, delta=delta)
+            np.testing.assert_allclose(dL_dpars_ana, dL_dpars_num, atol=1e-3, rtol=1e-3)

@@ -277,12 +277,13 @@ class Permutation(Flow):
         if order is None:
             order = np.arange(d)
             np.random.shuffle(order)
-        self.order = order.astype(np.int32)
+        self.true_order = np.round(order, 0).astype(np.int32)
+        self.order = self.true_order.astype(np.float32)
 
         # Because this layer does not train, precompute
         # the Jacobian determinant. This is always 1 or -1.
         P = np.zeros((d, d), dtype=DTYPE)
-        P[np.arange(d), order] = 1.0
+        P[np.arange(d), self.true_order] = 1.0
         self.detjac = np.linalg.det(P)
 
     @classmethod
@@ -294,7 +295,7 @@ class Permutation(Flow):
         if params is not None:
             assert isinstance(params, np.ndarray)
             assert params.shape[0] == (d,)
-            order = params.astype(np.int32)
+            order = np.round(params, 0).astype(np.int32)
         return cls(d, order=order)
 
     @property
@@ -303,24 +304,39 @@ class Permutation(Flow):
 
     @property
     def parameters(self) -> OrderedDict:
-        return {"order": self.order}
+        return {"order": self.true_order.astype(np.float32)}
 
     def forward(self, X: np.ndarray) -> Tuple[np.ndarray]:
         assert len(X.shape) == 2
         assert X.shape[1] == self.d
-        order = np.round(self.order, 0).astype(np.int32)
+        order = self.true_order
         Y = X[:, order]
         detjac = np.full(X.shape[0], self.detjac, dtype=DTYPE)
         return Y, detjac
 
     def invert(self, Y: np.ndarray) -> np.ndarray:
-        order = np.argsort(self.order)
-        X = Y[:, order]
+        order = self.true_order
+        inv_order = np.argsort(order)
+        X = Y[:, inv_order]
         return X
 
-    def backward(self, X: np.ndarray, dL_dY: np.ndarray) -> np.ndarray:
-        raise NotImplemented
-    
+    def backward(
+        self, X: np.ndarray, dL_dY: np.ndarray, normalize: bool = True
+    ) -> np.ndarray:
+        assert len(X.shape) == 2
+        assert len(dL_dY.shape) == 2
+        assert X.shape[1] == self.d
+        assert dL_dY.shape[1] == self.d
+        assert X.shape == dL_dY.shape
+        order = self.true_order
+        inv_order = np.argsort(order)
+        dL_dX = dL_dY[:, inv_order]
+        dlogdetjac_dX = np.zeros_like(X)
+        # if normalize:  # meaningless for Permutation
+        #     dL_dX -= dlogdetjac_dX
+        dL_dpars = {"order": np.zeros(self.d, dtype=DTYPE)}
+        return dL_dX, dlogdetjac_dX, dL_dpars
+
 
 FLOWS = {f.__name__: f for f in [AffineFlow, PlanarFlow, Permutation]}
 
