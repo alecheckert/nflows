@@ -46,10 +46,11 @@ class Flow(ABC):
     @abstractmethod
     def backward(
         self, X: np.ndarray, dL_dY: np.ndarray, normalize: bool = True
-    ) -> Tuple[np.ndarray]:
+    ) -> tuple:
         """Given partial derivatives of a scalar loss with
         respect to the output of this Flow, propagate these
-        partial derivatives to the Flow's input.
+        partial derivatives to the Flow's input and its
+        parameters.
 
         Parameters
         ---------
@@ -68,11 +69,11 @@ class Flow(ABC):
         -------
         0:  partial derivatives of loss with respect to each
             element in input X (shape *X.shape*);
-        1:  Jacobian determinant for each element in the input
-            (shape (X.shape[0],));
-        2:  partial derivatives of log absolute Jacobian
+        1:  partial derivatives of log absolute Jacobian
             determinant with respect to each element in the
             input (shape *X.shape*);
+        2:  dict keyed by parameter name, partial derivatives
+            of loss with respect to each parameter (gradient)
         """
 
 
@@ -108,20 +109,19 @@ class ScalarFlow(Flow):
 
     def backward(
         self, X: np.ndarray, dL_dY: np.ndarray, normalize: bool = True
-    ) -> Tuple[np.ndarray]:
+    ) -> tuple:
         assert len(X.shape) == len(dL_dY.shape) == 2
         assert X.shape[1] == dL_dY.shape[1] == self.d
         a = self.scale
         b = self.mean
         dL_dX = dL_dY * a
-        detjac = np.full(X.shape[0], np.prod(self.scale), dtype=X.dtype)
         dlogdetjac_dX = np.zeros_like(X)
         # if normalize:  # meaningless for ScalarFlow
         #     dL_dX -= dlogdetjac_dX
         dL_dpars = {}
         dL_dpars["mean"] = dL_dY.mean(axis=0)
         dL_dpars["scale"] = (dL_dY * X).mean(axis=0) - 1 / (a + np.sign(a) * EPSILON)
-        return dL_dX, detjac, dlogdetjac_dX, dL_dpars
+        return dL_dX, dlogdetjac_dX, dL_dpars
 
 
 class PlanarFlow(Flow):
@@ -186,7 +186,7 @@ class PlanarFlow(Flow):
 
     def backward(
         self, X: np.ndarray, dL_dY: np.ndarray, normalize: bool = True
-    ) -> Tuple[np.ndarray]:
+    ) -> tuple:
         assert len(X.shape) == len(dL_dY.shape) == 2
         assert X.shape[1] == dL_dY.shape[1] == self.d
         w = self.w
@@ -227,7 +227,7 @@ class PlanarFlow(Flow):
             :, None
         ].mean(axis=0)
 
-        return dL_dX, detjac, dlogdetjac_dX, dL_dpars
+        return dL_dX, dlogdetjac_dX, dL_dpars
 
 
 FLOWS = {f.__name__: f for f in [ScalarFlow, PlanarFlow]}

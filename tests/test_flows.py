@@ -58,7 +58,7 @@ class TestPlanarFlow(unittest.TestCase):
                 _, detjac = flow.forward(X)
                 return np.log(detjac[0] + EPSILON)
 
-            _, _, dlogdetjac_dX, _ = flow.backward(X, np.zeros_like(X))
+            _, dlogdetjac_dX, _ = flow.backward(X, np.zeros_like(X))
             dlogdetjac_dX_num = finite_differences(f, X, delta=delta)
             np.testing.assert_allclose(
                 dlogdetjac_dX, dlogdetjac_dX_num, atol=1e-4, rtol=1e-3
@@ -90,7 +90,7 @@ class TestPlanarFlow(unittest.TestCase):
             # Evaluate via backpropagation
             Y, _ = flow.forward(Xi)
             dL_dY = Y.copy()
-            dL_dX_ana, _, _, _ = flow.backward(Xi, dL_dY, normalize=False)
+            dL_dX_ana, _, _ = flow.backward(Xi, dL_dY, normalize=False)
             np.testing.assert_allclose(dL_dX_ana, dL_dX_num, atol=1e-3, rtol=1e-3)
 
     def test_backward_full_loss(self):
@@ -125,7 +125,7 @@ class TestPlanarFlow(unittest.TestCase):
             # Evaluate via backpropagation
             Y, _ = flow.forward(Xi)
             dL_dY = Y.copy()
-            dL_dX_ana, _, _, _ = flow.backward(Xi, dL_dY)
+            dL_dX_ana, _, _ = flow.backward(Xi, dL_dY)
             np.testing.assert_allclose(dL_dX_ana, dL_dX_num, atol=1e-3, rtol=1e-3)
 
     def test_gradient(self):
@@ -157,7 +157,7 @@ class TestPlanarFlow(unittest.TestCase):
         Y, _ = flow.forward(X)
         L = 0.5 * (Y**2).sum(axis=1) + (self.d / 2) * np.log(2 * np.pi)
         dL_dY = Y.copy()
-        _, _, _, dL_dpars_ana = flow.backward(X, dL_dY)
+        _, _, dL_dpars_ana = flow.backward(X, dL_dY)
 
         dL_dpars_ana = np.concatenate(
             [dL_dpars_ana["w"], dL_dpars_ana["v"], dL_dpars_ana["b"]]
@@ -216,7 +216,7 @@ class TestScalarFlow(unittest.TestCase):
             # Evaluate via backpropagation
             Y, _ = flow.forward(Xi)
             dL_dY = Y.copy()
-            dL_dX_ana, _, _, _ = flow.backward(Xi, dL_dY, normalize=False)
+            dL_dX_ana, _, _ = flow.backward(Xi, dL_dY, normalize=False)
             np.testing.assert_allclose(dL_dX_ana, dL_dX_num, atol=1e-3, rtol=1e-3)
 
     def test_backward_full_loss(self):
@@ -247,7 +247,7 @@ class TestScalarFlow(unittest.TestCase):
             # Evaluate via backpropagation
             Y, _ = flow.forward(Xi)
             dL_dY = Y.copy()
-            dL_dX_ana, _, _, _ = flow.backward(Xi, dL_dY)
+            dL_dX_ana, _, _ = flow.backward(Xi, dL_dY)
             np.testing.assert_allclose(dL_dX_ana, dL_dX_num, atol=1e-3, rtol=1e-3)
 
     def test_jacdet(self):
@@ -257,7 +257,7 @@ class TestScalarFlow(unittest.TestCase):
         n = 3
         X = np.random.normal(size=(1, self.d)).astype(DTYPE)
         _, jd = flow.forward(X)
-        _, _, dlogdetjac_dX, _ = flow.backward(X, np.zeros_like(X))
+        _, dlogdetjac_dX, _ = flow.backward(X, np.zeros_like(X))
         assert jd.shape == (X.shape[0],)
         np.testing.assert_allclose(jd, np.prod(scale), atol=1e-4, rtol=1e-4)
         np.testing.assert_allclose(dlogdetjac_dX, 0.0, atol=1e-4, rtol=1e-4)
@@ -288,7 +288,7 @@ class TestScalarFlow(unittest.TestCase):
         Y, _ = flow.forward(X)
         L = 0.5 * (Y**2).sum(axis=1) + (self.d / 2) * np.log(2 * np.pi)
         dL_dY = Y.copy()
-        _, _, _, dL_dpars_ana = flow.backward(X, dL_dY)
+        _, _, dL_dpars_ana = flow.backward(X, dL_dY)
         dL_dpars_ana = np.concatenate([dL_dpars_ana["mean"], dL_dpars_ana["scale"]])
         np.testing.assert_allclose(dL_dpars_ana, dL_dpars_num, atol=1e-3, rtol=1e-3)
 
