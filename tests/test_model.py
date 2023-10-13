@@ -2,7 +2,7 @@ import numpy as np
 import unittest
 
 from nflows.constants import DTYPE, EPSILON
-from nflows.flows import ScalarFlow
+from nflows.flows import PlanarFlow, ScalarFlow
 from nflows.model import Model
 from nflows.utils import finite_differences, numerical_jacdet
 
@@ -34,7 +34,7 @@ class TestModelScalar1(unittest.TestCase):
 
     def test_get_set_parameters(self):
         model = self.model
-        params = model.get_parameters()
+        params = model.get_parameters(flat=True)
         assert params.shape == (self.d * 2,)
         np.testing.assert_allclose(params[: self.d], self.mean, atol=1e-6, rtol=1e-6)
         np.testing.assert_allclose(params[self.d :], self.scale, atol=1e-6, rtol=1e-6)
@@ -42,7 +42,7 @@ class TestModelScalar1(unittest.TestCase):
         # Test Model.set_parameters
         params = params * 2 + 3.0
         model.set_parameters(params.copy())
-        params2 = model.get_parameters()
+        params2 = model.get_parameters(flat=True)
         np.testing.assert_allclose(params, params2, atol=1e-6, rtol=1e-6)
 
         # Test Model.split_parameters
@@ -106,6 +106,51 @@ class TestModelScalar1(unittest.TestCase):
             L, _, _ = model.backward(X)
             return L.mean()
 
-        params = model.get_parameters()
+        params = model.get_parameters(flat=True)
         dL_dpars_num = finite_differences(f, params, delta=delta)
         np.testing.assert_allclose(dL_dpars_ana, dL_dpars_num, atol=1e-4, rtol=1e-3)
+
+
+class TestModelPlanar(unittest.TestCase):
+    """More complex Model comprised of a stacked ScalarFlow and PlanarFlow."""
+
+    def setUp(self):
+        np.random.seed(666)
+        self.d = 4
+        self.N = 10
+        mean = np.random.normal(scale=2, size=self.d).astype(DTYPE)
+        scale = np.random.normal(scale=2, size=self.d).astype(DTYPE)
+        w = np.random.normal(scale=2, size=self.d).astype(DTYPE)
+        v = np.random.normal(scale=2, size=self.d).astype(DTYPE)
+        b = np.random.normal(scale=2, size=1).astype(DTYPE)
+        assert w @ v > -1  # condition for model invertibility
+        self.X = np.random.normal(size=(self.N, self.d)).astype(DTYPE)
+        self.model = Model(
+            flows=[
+                ScalarFlow(self.d, mean=mean, scale=scale),
+                PlanarFlow(self.d, w=w, v=v, b=b),
+            ]
+        )
+
+    def test_init(self):
+        model = self.model
+        assert len(model.flows) == 2
+        assert isinstance(model.flows[0], ScalarFlow)
+        assert isinstance(model.flows[1], PlanarFlow)
+
+    def test_get_parameters(self):
+        model = self.model
+        params = model.get_parameters(flat=False)
+        flat_params = model.get_parameters(flat=True)
+        for (i, k), v in params.items():
+            assert params[(i, k)] is model.flows[i].parameters[k]
+            s0, s1 = model.parameter_map[(i, k)]
+            np.testing.assert_allclose(
+                v, model.flows[i].parameters[k], atol=1e-6, rtol=1e-6
+            )
+            np.testing.assert_allclose(v, flat_params[s0:s1], atol=1e-6, rtol=1e-6)
+            # Can modify underlying parameters by reference
+            v += np.ones(v.shape, dtype=DTYPE)
+            np.testing.assert_allclose(
+                v, model.flows[i].parameters[k], atol=1e-6, rtol=1e-6
+            )

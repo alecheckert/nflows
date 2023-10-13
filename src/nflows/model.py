@@ -34,12 +34,32 @@ class Model:
     def n_parameters(self) -> int:
         return self._n_parameters
 
-    def get_parameters(self) -> np.ndarray:
-        """Return all model parameters as a linear array."""
-        params = np.zeros(self.n_parameters, dtype=DTYPE)
-        for (i, k), (s0, s1) in self.parameter_map.items():
-            params[s0:s1] = self.flows[i].parameters[k]
-        return params
+    def get_parameters(self, flat: bool = False) -> np.ndarray:
+        """Return all model parameters.
+
+        Parameters
+        ----------
+        flat    :   return all parameters as a single linear array
+                    rather than a dict. Makes a copy of parameters.
+
+        Returns
+        -------
+        if flat:
+            1D ndarray of shape (self.n_parameters,), copies of
+            all model parameters
+        else:
+            dict keyed by (flow index, parameter name); values are
+            references to the underlying parameters
+        """
+        if flat:
+            params = np.zeros(self.n_parameters, dtype=DTYPE)
+            for (i, k), (s0, s1) in self.parameter_map.items():
+                params[s0:s1] = self.flows[i].parameters[k]
+            return params
+        else:
+            return {
+                (i, k): self.flows[i].parameters[k] for (i, k) in self.parameter_map
+            }
 
     def set_parameters(self, params: np.ndarray):
         """Set all parameters of this Model. Input should be
