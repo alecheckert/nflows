@@ -1,6 +1,6 @@
 import numpy as np
 import unittest
-from nflows.utils import finite_differences
+from nflows.utils import finite_differences, numerical_jacdet
 
 
 class TestFiniteDifferences(unittest.TestCase):
@@ -48,3 +48,18 @@ class TestFiniteDifferences(unittest.TestCase):
         # Analytical derivatives
         df_dX_ana = -a * b * np.sin(a * X)
         np.testing.assert_allclose(df_dX_num, df_dX_ana, atol=1e-3, rtol=1e-2)
+
+
+class TestNumericalJacDet(unittest.TestCase):
+    def test_scalar(self):
+        d = 4
+        delta = 1e-4
+        a = np.random.normal(scale=2, size=d)
+        b = np.random.normal(scale=2, size=d)
+        x = np.random.normal(scale=2, size=d)
+
+        def f(x: np.ndarray) -> np.ndarray:
+            return a * x + b
+
+        detjac = numerical_jacdet(f, x, delta=delta)
+        assert abs(detjac - np.prod(a)) < 1e-6

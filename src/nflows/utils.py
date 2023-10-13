@@ -32,3 +32,32 @@ def finite_differences(f: Callable, X: np.ndarray, delta: float = 1e-3) -> np.nd
         df_dX[i] = (f1 - f0) / delta
         Xflat[i] = base
     return df_dX.reshape(X.shape)
+
+
+def numerical_jacdet(f: Callable, x: np.ndarray, delta: float = 1e-3) -> float:
+    """Estimate the Jacobian determinant of a single data point.
+
+    Parameters
+    ----------
+    f       :   function with signature f(x: np.ndarray) -> np.ndarray,
+                where input and output are 1D arrays of same size
+    x       :   input (1D array)
+    delta   :   size of finite difference to use
+
+    Returns
+    -------
+    float, estimated Jacobian determinant
+    """
+    assert len(x.shape) == 1
+    n = x.shape[0]
+    hd = 0.5 * delta
+    J = np.zeros((n, n), dtype=x.dtype)
+    for i in range(n):
+        base = x[i]
+        x[i] = base - hd
+        y0 = f(x)
+        x[i] = base + hd
+        y1 = f(x)
+        J[:,i] = (y1 - y0) / delta
+        x[i] = base
+    return np.linalg.det(J)
