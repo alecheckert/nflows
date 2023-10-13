@@ -54,10 +54,10 @@ class TestPlanarFlow(unittest.TestCase):
         for X in sample_X:
 
             def f(X: np.ndarray) -> float:
-                _, detjac, _ = flow.backward(X, np.zeros_like(X))
+                _, detjac, _, _ = flow.backward(X, np.zeros_like(X))
                 return np.log(detjac[0] + EPSILON)
 
-            _, detjac, dlogdetjac_dX = flow.backward(X, np.zeros_like(X))
+            _, detjac, dlogdetjac_dX, _ = flow.backward(X, np.zeros_like(X))
             dlogdetjac_dX_num = finite_differences(f, X, delta=delta)
             np.testing.assert_allclose(
                 dlogdetjac_dX, dlogdetjac_dX_num, atol=1e-4, rtol=1e-3
@@ -89,7 +89,7 @@ class TestPlanarFlow(unittest.TestCase):
             # Evaluate via backpropagation
             Y = flow.forward(Xi)
             dL_dY = Y.copy()
-            dL_dX_ana, _, _ = flow.backward(Xi, dL_dY, normalize=False)
+            dL_dX_ana, _, _, _ = flow.backward(Xi, dL_dY, normalize=False)
             np.testing.assert_allclose(dL_dX_ana, dL_dX_num, atol=1e-3, rtol=1e-3)
 
     def test_backward_full_loss(self):
@@ -104,7 +104,7 @@ class TestPlanarFlow(unittest.TestCase):
         def loss(X: np.ndarray) -> float:
             Y = flow.forward(X)
             L = 0.5 * (Y**2).sum() + (self.d / 2) * np.log(2 * np.pi)
-            _, detjac, _ = flow.backward(X, np.zeros_like(X))
+            _, detjac, _, _ = flow.backward(X, np.zeros_like(X))
             logdetjac = np.log(np.abs(detjac) + EPSILON)
             L -= logdetjac
             return L.sum()
@@ -125,8 +125,45 @@ class TestPlanarFlow(unittest.TestCase):
             # Evaluate via backpropagation
             Y = flow.forward(Xi)
             dL_dY = Y.copy()
-            dL_dX_ana, _, _ = flow.backward(Xi, dL_dY)
+            dL_dX_ana, _, _, _ = flow.backward(Xi, dL_dY)
             np.testing.assert_allclose(dL_dX_ana, dL_dX_num, atol=1e-3, rtol=1e-3)
+
+    def test_gradient(self):
+        w = np.random.normal(size=self.d).astype(DTYPE)
+        v = np.random.normal(size=self.d).astype(DTYPE)
+        b = np.random.normal(size=1).astype(DTYPE)
+
+        n = 10
+        X = np.random.normal(size=(n, self.d)).astype(DTYPE)
+
+        def loss(pars: np.ndarray) -> float:
+            w = pars[: self.d]
+            v = pars[self.d : 2 * self.d]
+            b = pars[2 * self.d :]
+            flow = PlanarFlow(d=self.d, w=w, v=v, b=b)
+            Y = flow.forward(X)
+            L = 0.5 * (Y**2).sum(axis=1) + (self.d / 2) * np.log(2 * np.pi)
+            dL_dY = Y.copy()
+            _, detjac, _, _ = flow.backward(X, dL_dY)
+            logdetjac = np.log(np.abs(detjac) + EPSILON)
+            L -= logdetjac
+            return L.mean()
+
+        pars = np.concatenate([w, v, b])
+        delta = 1e-4
+        dL_dpars_num = finite_differences(loss, pars, delta=delta)
+
+        # Analytical loss
+        flow = PlanarFlow(d=self.d, w=w, v=v, b=b)
+        Y = flow.forward(X)
+        L = 0.5 * (Y**2).sum(axis=1) + (self.d / 2) * np.log(2 * np.pi)
+        dL_dY = Y.copy()
+        _, _, _, dL_dpars_ana = flow.backward(X, dL_dY)
+
+        dL_dpars_ana = np.concatenate(
+            [dL_dpars_ana["w"], dL_dpars_ana["v"], dL_dpars_ana["b"]]
+        )
+        np.testing.assert_allclose(dL_dpars_ana, dL_dpars_num, atol=1e-3, rtol=1e-3)
 
 
 class TestScalarFlow(unittest.TestCase):
