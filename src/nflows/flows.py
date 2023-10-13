@@ -20,7 +20,7 @@ class Flow(ABC):
     @property
     @abstractmethod
     def shape(self) -> Tuple[int]:
-        """Shape of the inputs and outputs to this model.
+        """Shape of the inputs and outputs to this Flow.
         First dimension is assumed to encode index in
         batch (e.g. None)."""
 
@@ -271,9 +271,61 @@ class PlanarFlow(Flow):
         return dL_dX, dlogdetjac_dX, dL_dpars
 
 
-FLOWS = {f.__name__: f for f in [AffineFlow, PlanarFlow]}
+class Permutation(Flow):
+    def __init__(self, d: int, order: np.ndarray = None):
+        self.d = d
+        if order is None:
+            order = np.arange(d)
+            np.random.shuffle(order)
+        self.order = order.astype(np.int32)
+
+        # Because this layer does not train, precompute
+        # the Jacobian determinant. This is always 1 or -1.
+        P = np.zeros((d, d), dtype=DTYPE)
+        P[np.arange(d), order] = 1.0
+        self.detjac = np.linalg.det(P)
+
+    @classmethod
+    def from_shape(cls, shape: tuple, params: np.ndarray = None):
+        assert isinstance(shape, tuple)
+        assert len(shape) == 1
+        d = shape[0]
+        order = None
+        if params is not None:
+            assert isinstance(params, np.ndarray)
+            assert params.shape[0] == (d,)
+            order = params.astype(np.int32)
+        return cls(d, order=order)
+
+    @property
+    def shape(self) -> Tuple[int]:
+        return (self.d,)
+
+    @property
+    def parameters(self) -> OrderedDict:
+        return {"order": self.order}
+
+    def forward(self, X: np.ndarray) -> Tuple[np.ndarray]:
+        assert len(X.shape) == 2
+        assert X.shape[1] == self.d
+        order = np.round(self.order, 0).astype(np.int32)
+        Y = X[:, order]
+        detjac = np.full(X.shape[0], self.detjac, dtype=DTYPE)
+        return Y, detjac
+
+    def invert(self, Y: np.ndarray) -> np.ndarray:
+        order = np.argsort(self.order)
+        X = Y[:, order]
+        return X
+
+    def backward(self, X: np.ndarray, dL_dY: np.ndarray) -> np.ndarray:
+        raise NotImplemented
+    
+
+FLOWS = {f.__name__: f for f in [AffineFlow, PlanarFlow, Permutation]}
 
 FLOW_HASHES = {
     1: "AffineFlow",
     2: "PlanarFlow",
+    3: "Permutation",
 }

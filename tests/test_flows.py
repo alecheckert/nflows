@@ -357,3 +357,22 @@ class TestJacDet(unittest.TestCase):
                 jacdetnum[i] = numerical_jacdet(f, X[i, :], delta=delta)
 
             np.testing.assert_allclose(jacdetana, jacdetnum, atol=1e-5, rtol=1e-5)
+
+
+class TestInversion(unittest.TestCase):
+    """Test equivalence of forward and inverse calculation for
+    all Flows."""
+
+    def setUp(self):
+        np.random.seed(666)
+
+    def test_inversion(self):
+        d = 4
+        N = 10
+        delta = 1e-4
+        X = np.random.normal(size=(N, d)).astype(DTYPE)
+        for flow_name, flow_cls in FLOWS.items():
+            flow = flow_cls(d)
+            Y, _ = flow.forward(X)
+            Z = flow.invert(Y)
+            np.testing.assert_allclose(Z, X, atol=1e-5, rtol=1e-5)
