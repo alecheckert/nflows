@@ -1,3 +1,4 @@
+import numpy as np
 from typing import List, Tuple
 from .constants import DTYPE, EPSILON
 from .flows import Flow
@@ -68,7 +69,7 @@ class Model:
         # (2) the negative log likelihood of the latent space
         # representation. We accumulate the factors for (1)
         # during forward evaluation.
-        L = np.zeros(N, dtype=X.dtype)
+        L = np.zeros(n, dtype=X.dtype)
 
         # Keep track of intermediate values for each layer
         values = {0: X}
@@ -82,7 +83,7 @@ class Model:
 
         # Component of loss due to negative log likelihood of
         # latent space representation
-        L += 0.5 * (Y**2).sum(axis=1) + (d / 2) * np.log2(2 * np.pi)
+        L += 0.5 * (Y**2).sum(axis=1) + (d / 2) * np.log(2 * np.pi)
 
         # Partial derivatives of the loss w.r.t. each element
         # of the latent vector
@@ -95,4 +96,4 @@ class Model:
             dL_dX, _, dL_dpars_i = flow.backward(values[i], dL_dX)
             dL_dpars[i] = dL_dpars_i
 
-        return dL_dpars
+        return L, dL_dX, dL_dpars
