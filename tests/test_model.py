@@ -1,10 +1,33 @@
-import numpy as np
+import os
+import tempfile
 import unittest
+import numpy as np
 
 from nflows.constants import DTYPE, EPSILON
 from nflows.flows import PlanarFlow, ScalarFlow
 from nflows.model import Model
 from nflows.utils import finite_differences, numerical_jacdet
+
+
+class NamedTemporaryFile:
+    """A tempfile with an optional suffix. In contrast to
+    tempfile.NamedTemporaryFile, this file is not created
+    by default, but it is destroyed if it still exists at
+    end of scope."""
+
+    def __init__(self, suffix: str = ""):
+        self.name = os.path.join(
+            tempfile.gettempdir(), f"{os.urandom(24).hex()}{suffix}"
+        )
+        if os.path.isfile(self.name):
+            raise OSError(f"temp file already exists: {self.name}")
+
+    def __enter__(self):
+        pass
+
+    def __exit__(self, etype, evalue, traceback):
+        if os.path.isfile(self.name):
+            os.remove(self.name)
 
 
 class TestModelScalar1(unittest.TestCase):
@@ -243,3 +266,31 @@ class TestModelPlanar(unittest.TestCase):
         params = model.get_parameters(flat=True)
         dL_dpars_num = finite_differences(f, params, delta=delta)
         np.testing.assert_allclose(dL_dpars_ana, dL_dpars_num, atol=1e-4, rtol=1e-3)
+
+
+class TestModelSaveLoad(unittest.TestCase):
+    def test_model_save_load(self):
+        d = 6
+        flows = [
+            ScalarFlow(d),
+            PlanarFlow(d),
+            PlanarFlow(d),
+            PlanarFlow(d),
+            PlanarFlow(d),
+            PlanarFlow(d),
+        ]
+        model = Model(flows)
+        n_parameters = model.n_parameters
+        params = np.random.normal(size=n_parameters).astype(np.float32)
+        model.set_parameters(params)
+        tmp = NamedTemporaryFile(suffix=".nflows")
+        assert not os.path.isfile(tmp.name)
+        model.save(tmp.name)
+        assert os.path.isfile(tmp.name)
+        model2 = Model.load(tmp.name)
+        assert len(model2.flows) == len(model.flows)
+        np.testing.assert_allclose(
+            model2.get_parameters(flat=True), params, atol=1e-6, rtol=1e-6
+        )
+        for flow0, flow1 in zip(model.flows, model2.flows):
+            assert flow0.__class__.__name__ == flow1.__class__.__name__

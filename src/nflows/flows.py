@@ -272,3 +272,8 @@ class PlanarFlow(Flow):
 
 
 FLOWS = {f.__name__: f for f in [ScalarFlow, PlanarFlow]}
+
+FLOW_HASHES = {
+    1: "ScalarFlow",
+    2: "PlanarFlow",
+}

@@ -1,7 +1,9 @@
 import numpy as np
+import os
+import struct
 from typing import List, Tuple
-from .constants import DTYPE, EPSILON
-from .flows import Flow
+from .constants import DTYPE, EPSILON, NFLOWS_MAGIC, SUFFIX
+from .flows import Flow, FLOWS, FLOW_HASHES
 
 
 class Model:
@@ -180,3 +182,70 @@ class Model:
                 dL_dpars[s0:s1] = dL_dpars_i[k]
 
         return L, dL_dX, dL_dpars
+
+    def save(self, path: str):
+        """Serialize this Model to a binary .nflows file.
+
+        This file has the following format (ranges are right-open,
+        so range 10-14 is 4 bytes):
+
+            Header:
+                bytes 0-10:   file magic
+                bytes 10-14:  file version
+                bytes 14-18:  number of Flows
+                bytes 18-22:  total number of parameters
+
+            for each Flow:
+                4 bytes encoding type of Flow (val in FLOW_HASHES)
+                4 bytes encoding number of shape parameters
+                shape parameters as array of 32-bit integers
+
+            All model parameters as a linear array of 32-bit float.
+        """
+        ext = os.path.splitext(path)[-1]
+        if ext == "":
+            path = f"{path}.{SUFFIX}"
+        if os.path.isfile(path):
+            raise OSError(f"file exists: {path}")
+        inv_hashes = {v: k for k, v in FLOW_HASHES.items()}
+        with open(path, "wb") as o:
+            o.write(NFLOWS_MAGIC)
+            o.write(struct.pack("<i", 1))  # version
+            o.write(struct.pack("<i", len(self.flows)))
+            o.write(struct.pack("<i", self.n_parameters))
+            for flow in self.flows:
+                i = inv_hashes[flow.__class__.__name__]
+                shape = (flow.d,)
+                o.write(struct.pack("<i", i))
+                o.write(struct.pack("<i", len(shape)))
+                for d in shape:
+                    o.write(struct.pack("<i", d))
+            params = self.get_parameters(flat=True)
+            o.write(struct.pack("<%sf" % len(params), *params))
+
+    @classmethod
+    def load(cls, path: str):
+        """Load a model saved with Model.save."""
+        if not os.path.isfile(path):
+            raise OSError(f"file not found: {path}")
+        with open(path, "rb") as i:
+            magic = i.read(len(NFLOWS_MAGIC))
+            if magic != NFLOWS_MAGIC:
+                raise ValueError("wrong magic")
+            version = struct.unpack("<i", i.read(4))[0]
+            if version != 1:
+                raise ValueError(f"unsupported version: {version}")
+            n_flows = struct.unpack("<i", i.read(4))[0]
+            n_params = struct.unpack("<i", i.read(4))[0]
+            flows = []
+            for flow_idx in range(n_flows):
+                h = struct.unpack("<i", i.read(4))[0]
+                shape_size = struct.unpack("<i", i.read(4))[0]
+                shape = tuple(
+                    struct.unpack("<i", i.read(4))[0] for j in range(shape_size)
+                )
+                flows.append(FLOWS[FLOW_HASHES[h]].from_shape(shape))
+            model = Model(flows)
+            params = np.array(struct.unpack("<%sf" % n_params, i.read(4 * n_params)))
+            model.set_parameters(params)
+            return model
