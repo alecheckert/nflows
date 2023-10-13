@@ -85,6 +85,20 @@ class Model:
             X, _ = flow.forward(X)
         return X
 
+    def log_likelihood(self, X: np.ndarray) -> np.ndarray:
+        """Evaluate the log likelihood of each of a set of
+        data points under the current model. Returns linear
+        array of shape (X.shape[0],)."""
+        n = X.shape[0]
+        d = np.prod(X.shape[1:])
+        L = np.zeros(n, dtype=X.dtype)
+        Y = X
+        for flow in self.flows:
+            Y, dJ = flow.forward(Y)
+            L += np.log(np.abs(dJ) + EPSILON)
+        L += -0.5 * (Y**2).sum(axis=1) - (d / 2) * np.log(2 * np.pi)
+        return L
+
     def invert(self, Y: np.ndarray) -> np.ndarray:
         """Given some data points from the latent space *Y*,
         transform into the data space *X*."""

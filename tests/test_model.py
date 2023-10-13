@@ -179,6 +179,18 @@ class TestModelPlanar(unittest.TestCase):
         Y2, _ = model.flows[1].forward(Y1)
         np.testing.assert_allclose(Y, Y2, atol=1e-6, rtol=1e-6)
 
+    def test_log_likelihood(self):
+        model = self.model
+        X = self.X.copy()
+        L = model.log_likelihood(X)
+
+        # Does not modify input
+        np.testing.assert_allclose(X, self.X, atol=1e-6, rtol=1e-6)
+
+        # Agrees with loss calculation
+        loss, _, _ = model.backward(X)
+        np.testing.assert_allclose(-L, loss, atol=1e-6, rtol=1e-6)
+
     def test_invert(self):
         model = self.model
         X = self.X
