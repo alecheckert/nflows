@@ -204,7 +204,7 @@ class Model:
         """
         ext = os.path.splitext(path)[-1]
         if ext == "":
-            path = f"{path}.{SUFFIX}"
+            path = f"{path}{SUFFIX}"
         if os.path.isfile(path):
             raise OSError(f"file exists: {path}")
         inv_hashes = {v: k for k, v in FLOW_HASHES.items()}
