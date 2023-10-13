@@ -276,7 +276,8 @@ class Permutation(Flow):
         self.d = d
         if order is None:
             order = np.arange(d)
-            np.random.shuffle(order)
+            while (order == np.arange(d)).all():
+                np.random.shuffle(order)
         self.true_order = np.round(order, 0).astype(np.int32)
         self.order = self.true_order.astype(np.float32)
 
