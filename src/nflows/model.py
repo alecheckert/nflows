@@ -25,7 +25,7 @@ class Model:
         """Transform some observed data points *X* into their
         latent representations *Y*."""
         for flow in self.flows:
-            X = flow.forward(X)
+            X, _ = flow.forward(X)
         return X
 
     def invert(self, Y: np.ndarray) -> np.ndarray:
@@ -62,25 +62,37 @@ class Model:
         n = X.shape[0]
         d = X.shape[1]
 
+        # Loss for each datum. For a normalizing flow the
+        # loss comprises two parts: (1) the negative log
+        # Jacobian determinants for each transformation and
+        # (2) the negative log likelihood of the latent space
+        # representation. We accumulate the factors for (1)
+        # during forward evaluation.
+        L = np.zeros(N, dtype=X.dtype)
+
+        # Keep track of intermediate values for each layer
+        values = {0: X}
+
         # Forward evaluation
         Y = X.copy()
-        for flow in self.flows:
-            Y = flow.forward(Y)
+        for i, flow in enumerate(self.flows):
+            Y, dJ = flow.forward(Y)
+            values[i + 1] = Y
+            L -= np.log(np.abs(dJ) + EPSILON)
 
-        # Negative log likelihood w.r.t. to unit Gaussian
-        # in latent space
-        L = 0.5 * (Y**2).sum(axis=1) + (d/2)*np.log(2*np.pi)
+        # Component of loss due to negative log likelihood of
+        # latent space representation
+        L += 0.5 * (Y**2).sum(axis=1) + (d / 2) * np.log2(2 * np.pi)
 
         # Partial derivatives of the loss w.r.t. each element
         # of the latent vector
-        dloss_dX = Y.copy()
+        dL_dX = Y.copy()
 
         # Backpropagate through all parameters
-        for flow in self.flows[::-1]:
-            dloss_dX, detjac, dlogdetjac_dX = flow.backward(X, dloss_dX)
-            loss -= np.log(np.abs(detjac) + EPSILON)
+        dL_dpars = {}
+        for i in list(range(len(self.flows)))[::-1]:
+            flow = self.flows[i]
+            dL_dX, _, dL_dpars_i = flow.backward(values[i], dL_dX)
+            dL_dpars[i] = dL_dpars_i
 
-        # TODO:
-        # - return value
-        # - store gradients w.r.t. parameters of each Flow
-        # - in backprop, use the correct *X* (should be input to that Flow)
+        return dL_dpars
