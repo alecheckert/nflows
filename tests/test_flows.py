@@ -2,7 +2,7 @@ import numpy as np
 import unittest
 
 from nflows.constants import DTYPE, EPSILON
-from nflows.flows import ScalarFlow, PlanarFlow, FLOWS
+from nflows.flows import AffineFlow, PlanarFlow, FLOWS
 from nflows.utils import finite_differences, numerical_jacdet
 
 
@@ -177,7 +177,7 @@ class TestPlanarFlow(unittest.TestCase):
         np.testing.assert_allclose(dL_dpars_ana, dL_dpars_num, atol=1e-3, rtol=1e-3)
 
 
-class TestScalarFlow(unittest.TestCase):
+class TestAffineFlow(unittest.TestCase):
     def setUp(self):
         self.d = 4
         np.random.seed(666)
@@ -187,7 +187,7 @@ class TestScalarFlow(unittest.TestCase):
     def test_from_shape(self):
         d = self.d
         params = np.concatenate([self.mean, self.scale])
-        flow = ScalarFlow.from_shape((d,), params)
+        flow = AffineFlow.from_shape((d,), params)
         assert flow.d == self.d
         np.testing.assert_allclose(flow.mean, self.mean, atol=1e-6, rtol=1e-6)
         np.testing.assert_allclose(flow.scale, self.scale, atol=1e-6, rtol=1e-6)
@@ -195,7 +195,7 @@ class TestScalarFlow(unittest.TestCase):
     def test_parameters(self):
         mean = self.mean
         scale = self.scale
-        flow = ScalarFlow(d=self.d, mean=mean, scale=scale)
+        flow = AffineFlow(d=self.d, mean=mean, scale=scale)
         pars = flow.parameters
         assert pars["mean"] is flow.mean
         assert pars["scale"] is flow.scale
@@ -205,7 +205,7 @@ class TestScalarFlow(unittest.TestCase):
     def test_invert(self):
         mean = self.mean
         scale = self.scale
-        flow = ScalarFlow(d=self.d, mean=mean, scale=scale)
+        flow = AffineFlow(d=self.d, mean=mean, scale=scale)
         X = np.random.normal(size=(10, self.d)).astype(DTYPE)
         Y, _ = flow.forward(X)
         Z = flow.invert(Y)
@@ -214,7 +214,7 @@ class TestScalarFlow(unittest.TestCase):
     def test_backward(self):
         mean = self.mean
         scale = self.scale
-        flow = ScalarFlow(d=self.d, mean=mean, scale=scale)
+        flow = AffineFlow(d=self.d, mean=mean, scale=scale)
 
         def loss(X: np.ndarray) -> float:
             Y, _ = flow.forward(X)
@@ -242,7 +242,7 @@ class TestScalarFlow(unittest.TestCase):
     def test_backward_full_loss(self):
         mean = self.mean
         scale = self.scale
-        flow = ScalarFlow(d=self.d, mean=mean, scale=scale)
+        flow = AffineFlow(d=self.d, mean=mean, scale=scale)
 
         def loss(X: np.ndarray) -> float:
             Y, detjac = flow.forward(X)
@@ -273,7 +273,7 @@ class TestScalarFlow(unittest.TestCase):
     def test_jacdet(self):
         mean = self.mean
         scale = self.scale
-        flow = ScalarFlow(d=self.d, mean=mean, scale=scale)
+        flow = AffineFlow(d=self.d, mean=mean, scale=scale)
         n = 3
         X = np.random.normal(size=(1, self.d)).astype(DTYPE)
         _, jd = flow.forward(X)
@@ -291,7 +291,7 @@ class TestScalarFlow(unittest.TestCase):
         def loss(pars: np.ndarray) -> float:
             mean = pars[: self.d]
             scale = pars[self.d :]
-            flow = ScalarFlow(d=self.d, mean=mean, scale=scale)
+            flow = AffineFlow(d=self.d, mean=mean, scale=scale)
             Y, detjac = flow.forward(X)
             L = 0.5 * (Y**2).sum(axis=1) + (self.d / 2) * np.log(2 * np.pi)
             dL_dY = Y.copy()
@@ -304,7 +304,7 @@ class TestScalarFlow(unittest.TestCase):
         dL_dpars_num = finite_differences(loss, pars, delta=delta)
 
         # Analytical loss
-        flow = ScalarFlow(d=self.d, mean=mean, scale=scale)
+        flow = AffineFlow(d=self.d, mean=mean, scale=scale)
         Y, _ = flow.forward(X)
         L = 0.5 * (Y**2).sum(axis=1) + (self.d / 2) * np.log(2 * np.pi)
         dL_dY = Y.copy()

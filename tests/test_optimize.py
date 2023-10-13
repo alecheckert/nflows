@@ -5,7 +5,7 @@ import numpy as np
 from glob import glob
 
 from nflows.constants import SUFFIX
-from nflows.flows import ScalarFlow
+from nflows.flows import AffineFlow
 from nflows.model import Model
 from nflows.optimize import Dataset, adam
 
@@ -28,7 +28,7 @@ class TestAdam(unittest.TestCase):
         mean = np.array([1.0, -0.5])
         cov = np.array([[2.0, -0.5], [-0.5, 1.2]])
         size = 100
-        model = Model([ScalarFlow(2)])
+        model = Model([AffineFlow(2)])
         dataset = GaussianDataset(size, mean, cov)
         tempdir = tempfile.TemporaryDirectory()
         out_dir = os.path.join(tempdir.name, "testmodel")

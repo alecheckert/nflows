@@ -86,7 +86,7 @@ class Flow(ABC):
         """
 
 
-class ScalarFlow(Flow):
+class AffineFlow(Flow):
     def __init__(self, d: int, mean=None, scale=None):
         self.d = d
         if mean is None:
@@ -140,7 +140,7 @@ class ScalarFlow(Flow):
         b = self.mean
         dL_dX = dL_dY * a
         dlogdetjac_dX = np.zeros_like(X)
-        # if normalize:  # meaningless for ScalarFlow
+        # if normalize:  # meaningless for AffineFlow
         #     dL_dX -= dlogdetjac_dX
         dL_dpars = {}
         dL_dpars["mean"] = dL_dY.mean(axis=0)
@@ -271,9 +271,9 @@ class PlanarFlow(Flow):
         return dL_dX, dlogdetjac_dX, dL_dpars
 
 
-FLOWS = {f.__name__: f for f in [ScalarFlow, PlanarFlow]}
+FLOWS = {f.__name__: f for f in [AffineFlow, PlanarFlow]}
 
 FLOW_HASHES = {
-    1: "ScalarFlow",
+    1: "AffineFlow",
     2: "PlanarFlow",
 }

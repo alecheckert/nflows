@@ -4,7 +4,7 @@ import unittest
 import numpy as np
 
 from nflows.constants import DTYPE, EPSILON
-from nflows.flows import PlanarFlow, ScalarFlow
+from nflows.flows import PlanarFlow, AffineFlow
 from nflows.model import Model
 from nflows.utils import finite_differences, numerical_jacdet
 
@@ -31,7 +31,7 @@ class NamedTemporaryFile:
 
 
 class TestModelScalar1(unittest.TestCase):
-    """Simple Model comprised of a single ScalarFlow."""
+    """Simple Model comprised of a single AffineFlow."""
 
     def setUp(self):
         np.random.seed(666)
@@ -40,7 +40,7 @@ class TestModelScalar1(unittest.TestCase):
         self.mean = np.random.normal(scale=2, size=self.d).astype(DTYPE)
         self.scale = np.random.normal(scale=2, size=self.d).astype(DTYPE)
         self.X = np.random.normal(size=(self.N, self.d)).astype(DTYPE)
-        self.flow = ScalarFlow(self.d, mean=self.mean, scale=self.scale)
+        self.flow = AffineFlow(self.d, mean=self.mean, scale=self.scale)
         self.model = Model(flows=[self.flow])
 
     def test_init(self):
@@ -135,7 +135,7 @@ class TestModelScalar1(unittest.TestCase):
 
 
 class TestModelPlanar(unittest.TestCase):
-    """More complex Model comprised of a stacked ScalarFlow and PlanarFlow."""
+    """More complex Model comprised of a stacked AffineFlow and PlanarFlow."""
 
     def setUp(self):
         np.random.seed(666)
@@ -150,7 +150,7 @@ class TestModelPlanar(unittest.TestCase):
         self.X = np.random.normal(size=(self.N, self.d)).astype(DTYPE)
         self.model = Model(
             flows=[
-                ScalarFlow(self.d, mean=mean, scale=scale),
+                AffineFlow(self.d, mean=mean, scale=scale),
                 PlanarFlow(self.d, w=w, v=v, b=b),
             ]
         )
@@ -158,7 +158,7 @@ class TestModelPlanar(unittest.TestCase):
     def test_init(self):
         model = self.model
         assert len(model.flows) == 2
-        assert isinstance(model.flows[0], ScalarFlow)
+        assert isinstance(model.flows[0], AffineFlow)
         assert isinstance(model.flows[1], PlanarFlow)
 
     def test_get_parameters(self):
@@ -272,7 +272,7 @@ class TestModelSaveLoad(unittest.TestCase):
     def test_model_save_load(self):
         d = 6
         flows = [
-            ScalarFlow(d),
+            AffineFlow(d),
             PlanarFlow(d),
             PlanarFlow(d),
             PlanarFlow(d),
