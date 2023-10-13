@@ -45,6 +45,13 @@ class TestModelScalar1(unittest.TestCase):
         params2 = model.get_parameters()
         np.testing.assert_allclose(params, params2, atol=1e-6, rtol=1e-6)
 
+        # Test Model.split_parameters
+        params_split = model.split_parameters(params2)
+        for (flow_idx, parname), p in params_split.items():
+            np.testing.assert_allclose(
+                model.flows[flow_idx].parameters[parname], p, atol=1e-6, rtol=1e-6
+            )
+
     def test_forward(self):
         model = self.model
         X = self.X

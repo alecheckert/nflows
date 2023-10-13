@@ -48,6 +48,16 @@ class Model:
         for (i, k), (s0, s1) in self.parameter_map.items():
             self.flows[i].parameters[k][:] = params[s0:s1]
 
+    def split_parameters(self, params: np.ndarray) -> dict:
+        """Utility for turning a 1D ndarray over model parameters
+        or their gradients into a dict keyed by
+        (flow_idx, parameter_name)."""
+        assert params.shape == (self.n_parameters,)
+        return {
+            (i, k): params[s0:s1].copy()
+            for (i, k), (s0, s1) in self.parameter_map.items()
+        }
+
     def forward(self, X: np.ndarray) -> np.ndarray:
         """Transform some observed data points *X* into their
         latent representations *Y*."""
