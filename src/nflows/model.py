@@ -97,7 +97,7 @@ class Model:
         Y = np.random.normal(size=(n, *self.shape[1:])).astype(DTYPE)
         return self.invert(Y)
 
-    def backward(self, X: np.ndarray) -> np.ndarray:
+    def backward(self, X: np.ndarray) -> Tuple[np.ndarray]:
         """Evaluate the derivatives of all parameters in this Model
         with respect to the mean negative log likelihood of all data
         points.
@@ -121,7 +121,9 @@ class Model:
             each input datum;
         1:  ndarray of shape (n,), value of the loss for each
             input datum;
-        ...
+        2:  ndarray of shape (n_parameters,), gradient of the loss
+            with respect to each model parameter (averaged over
+            all data points)
         """
         if len(X.shape) == 1:
             X = X[None, :]
