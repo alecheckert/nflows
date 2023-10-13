@@ -1,5 +1,6 @@
 """Implementations of flow layers."""
 from abc import ABC, abstractmethod
+from collections import OrderedDict
 from typing import Tuple
 import numpy as np
 from .constants import DTYPE, EPSILON
@@ -17,7 +18,7 @@ class Flow(ABC):
 
     @property
     @abstractmethod
-    def parameters(self) -> dict:
+    def parameters(self) -> OrderedDict:
         """Get a dict of all model parameters, keyed by
         parameter name."""
 
@@ -94,8 +95,8 @@ class ScalarFlow(Flow):
         return (None, self.d)
 
     @property
-    def parameters(self) -> dict:
-        return {"mean": self.mean, "scale": self.scale}
+    def parameters(self) -> OrderedDict:
+        return OrderedDict(mean=self.mean, scale=self.scale)
 
     def forward(self, X: np.ndarray) -> Tuple[np.ndarray]:
         assert len(X.shape) == 2
@@ -145,8 +146,8 @@ class PlanarFlow(Flow):
         return (None, self.d)
 
     @property
-    def parameters(self) -> Tuple[np.ndarray]:
-        return {"w": self.w, "v": self.v, "b": self.b}
+    def parameters(self) -> OrderedDict:
+        return OrderedDict(w=self.w, v=self.v, b=self.b)
 
     def forward(self, X: np.ndarray) -> Tuple[np.ndarray]:
         assert len(X.shape) == 2
