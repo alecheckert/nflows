@@ -339,6 +339,91 @@ class Permutation(Flow):
         return dL_dX, dlogdetjac_dX, dL_dpars
 
 
+class RadialFlow(Flow):
+    def __init__(
+        self,
+        d: int,
+        b: np.ndarray = None,
+        alpha: np.ndarray = None,
+        beta: np.ndarray = None,
+    ):
+        if b is None:
+            b = np.zeros(d, dtype=DTYPE)
+        if alpha is None:
+            alpha = np.array([1.0])
+        if beta is None:
+            beta = np.array([0.0])
+
+        assert b.shape == (d,)
+        assert alpha.shape == (1,)
+        assert beta.shape == (1,)
+
+        self.d = d
+        self.b = b
+        self.alpha = alpha
+        self.beta = beta
+
+    @classmethod
+    def from_shape(cls, shape: Tuple[int], params: np.ndarray = None):
+        assert len(shape) == 1
+        d = shape[0]
+        b = None
+        alpha = None
+        beta = None
+        if params is not None:
+            assert params.shape == (d + 2,)
+            b = params[:d]
+            alpha = params[d : d + 1]
+            beta = params[d + 1 :]
+        return cls(d, b=b, alpha=alpha, beta=beta)
+
+    @property
+    def shape(self) -> tuple:
+        return (None, self.d)
+
+    @property
+    def parameters(self) -> dict:
+        return {"b": self.b, "alpha": self.alpha, "beta": self.beta}
+
+    def forward(self, X: np.ndarray) -> Tuple[np.ndarray]:
+        assert len(X.shape) == 2
+        assert X.shape[1] == self.d
+        b = self.b
+        alpha = self.alpha
+        beta = self.beta
+        dX = X - b
+        R = np.sqrt((dX**2).sum(axis=1))
+        alphaplus = np.log(1.0 + np.exp(alpha) + EPSILON)
+        Ralpha = R + alphaplus
+        Y = X + beta * dX / (Ralpha[:,None] + EPSILON)
+        detjac = None
+        return Y, detjac
+
+    def invert(self, Y: np.ndarray) -> np.ndarray:
+        raise NotImplementedError
+
+    def backward(
+        self, X: np.ndarray, dL_dY: np.ndarray, normalize: bool = True
+    ) -> tuple:
+        assert X.shape == dL_dY.shape
+        assert len(X.shape) == 2
+        assert X.shape[1] == self.d
+        b = self.b
+        alpha = self.alpha
+        beta = self.beta
+        alphaplus = np.log(1.0 + np.exp(alpha) + EPSILON)
+        dX = X - b
+        R = np.sqrt((dX**2).sum(axis=1))
+        Ralpha = R + alphaplus
+        dL_dX = (1 + beta / (Ralpha + EPSILON))[:, None] * dL_dY
+        dL_dX -= beta * (dL_dY * dX).sum(axis=1)[:, None] * dX / (
+            R * (Ralpha**2) + EPSILON
+        )[:, None]
+        dlogdetjac_dX = None
+        dL_dpars = None
+        return dL_dX, dlogdetjac_dX, dL_dpars
+
+
 FLOWS = {f.__name__: f for f in [AffineFlow, PlanarFlow, Permutation]}
 
 FLOW_HASHES = {

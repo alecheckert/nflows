@@ -2,7 +2,7 @@ import numpy as np
 import unittest
 
 from nflows.constants import DTYPE, EPSILON
-from nflows.flows import AffineFlow, PlanarFlow, Permutation, FLOWS
+from nflows.flows import AffineFlow, PlanarFlow, Permutation, RadialFlow, FLOWS
 from nflows.model import Model
 from nflows.utils import finite_differences, numerical_jacdet
 
@@ -343,6 +343,43 @@ class TestPermutation(unittest.TestCase):
         np.testing.assert_allclose(
             dL_dpars["order"], np.zeros(d, dtype=DTYPE), atol=1e-6, rtol=1e-6
         )
+
+
+class TestRadialFlow(unittest.TestCase):
+    def setUp(self):
+        np.random.seed(666)
+        self.N = 10
+        self.d = 4
+        self.b = np.random.normal(size=self.d).astype(DTYPE)
+        self.alpha = np.random.normal(size=1).astype(DTYPE)
+        self.beta = np.random.normal(size=1).astype(DTYPE)
+        self.X = np.random.normal(size=(self.N, self.d)).astype(DTYPE)
+
+    def test_backward_max_likelihood(self):
+        """Test accuracy of backpropagated partial derivatives
+        without the log Jacobian determinant penalty terms
+        (corresponding to a negative log likelihood loss in
+        the latent space)."""
+        N = self.N
+        d = self.d
+        b = self.b
+        alpha = self.alpha
+        beta = self.beta
+        X = self.X
+        dL_dY = np.random.normal(size=(N, d)).astype(DTYPE)
+        flow = RadialFlow(d, b=b, alpha=alpha, beta=beta)
+        Y, _ = flow.forward(X)
+        dL_dY = Y.copy()
+
+        def loss(X: np.ndarray) -> float:
+            Y, _ = flow.forward(X)
+            L = 0.5 * (Y**2).sum(axis=1) + (d/2) * np.log(2*np.pi)
+            return L.sum()
+
+        delta = 1e-4
+        dL_dX_num = finite_differences(loss, X, delta=delta)
+        dL_dX_ana, _, _ = flow.backward(X, dL_dY)
+        np.testing.assert_allclose(dL_dX_ana, dL_dX_num, atol=1e-5, rtol=1e-5)
 
 
 class TestParameterMutability(unittest.TestCase):
