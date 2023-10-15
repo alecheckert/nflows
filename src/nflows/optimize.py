@@ -97,8 +97,8 @@ def adam(
 
         # Show progress
         if verbose:
-            print(f"Epoch {epoch}:")
-            print(pd.DataFrame(epoch_records))
+            print(f"Epoch {epoch}:\t{mean_loss_value:.3f}")
+            # print(pd.DataFrame(epoch_records))
 
         # Save, if desired
         if save_mode == "all" or (save_mode == "best" and mean_loss_value < best_loss):
