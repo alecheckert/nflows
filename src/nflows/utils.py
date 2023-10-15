@@ -2,7 +2,7 @@ import numpy as np
 from typing import Callable
 
 
-def finite_differences(f: Callable, X: np.ndarray, delta: float = 1e-3) -> np.ndarray:
+def finite_differences(f: Callable, X: np.ndarray, delta: float = 1e-3, verbose: bool = False) -> np.ndarray:
     """Evaluate the numerical derivative of a scalar-valued function
     f with respect to each of its inputs via the finite differences
     method. Useful for validating backpropagation procedures.
@@ -12,6 +12,7 @@ def finite_differences(f: Callable, X: np.ndarray, delta: float = 1e-3) -> np.nd
     f       :   function with signature f(X: np.ndarray) -> float
     X       :   ndarray, inputs
     delta   :   size of finite difference to use
+    verbose :   print intermediate values
 
     Returns
     -------
@@ -30,6 +31,10 @@ def finite_differences(f: Callable, X: np.ndarray, delta: float = 1e-3) -> np.nd
         Xflat[i] = base + hd
         f1 = f(Xflat.reshape(X.shape))
         df_dX[i] = (f1 - f0) / delta
+        if verbose:
+            print(f"\nf(X[{i}]-{hd}) =\t{f0}")
+            print(f"f(X[{i}]+{hd}) =\t{f1}")
+            print(f"df/dX[{i}]   ~=\t{df_dX[i]}")
         Xflat[i] = base
     return df_dX.reshape(X.shape)
 

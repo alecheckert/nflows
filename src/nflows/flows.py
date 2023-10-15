@@ -395,7 +395,7 @@ class RadialFlow(Flow):
         R = np.sqrt((dX**2).sum(axis=1))
         alphaplus = np.log(1.0 + np.exp(alpha) + EPSILON)
         Ralpha = R + alphaplus
-        Y = X + beta * dX / (Ralpha[:,None] + EPSILON)
+        Y = X + beta * dX / (Ralpha + EPSILON)[:, None]
         detjac = None
         return Y, detjac
 
@@ -416,11 +416,19 @@ class RadialFlow(Flow):
         R = np.sqrt((dX**2).sum(axis=1))
         Ralpha = R + alphaplus
         dL_dX = (1 + beta / (Ralpha + EPSILON))[:, None] * dL_dY
-        dL_dX -= beta * (dL_dY * dX).sum(axis=1)[:, None] * dX / (
-            R * (Ralpha**2) + EPSILON
-        )[:, None]
+        dL_dX -= (
+            beta
+            * (dL_dY * dX).sum(axis=1)[:, None]
+            * dX
+            / (R * (Ralpha**2) + EPSILON)[:, None]
+        )
         dlogdetjac_dX = None
-        dL_dpars = None
+        dL_dpars = {}
+        mag = beta / (Ralpha + EPSILON) ** 2
+        dL_dpars["alpha"] = (
+            -((dL_dY * dX).sum(axis=1) * mag).mean() * 1.0 / (1.0 + np.exp(-alpha))
+        )
+        dL_dpars["beta"] = ((dL_dY * dX).sum(axis=1) / (Ralpha + EPSILON)).mean()
         return dL_dX, dlogdetjac_dX, dL_dpars
 
 
