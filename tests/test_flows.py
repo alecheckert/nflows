@@ -430,6 +430,31 @@ class TestRadialFlow(unittest.TestCase):
         dL_dalpha_num = finite_differences(loss, alpha, delta=delta)
         np.testing.assert_allclose(dL_dalpha_ana, dL_dalpha_num, atol=1e-5, rtol=1e-5)
 
+    def test_b_gradient(self):
+        """Test that RadialFlow accurately computes the gradient
+        with respect to the b parameter."""
+        N = self.N
+        d = self.d
+        b = self.b
+        alpha = self.alpha
+        beta = self.beta
+        X = self.X
+        flow = RadialFlow(d, b=b, alpha=alpha, beta=beta)
+        Y, _ = flow.forward(X)
+        dL_dY = Y.copy()
+        _, _, dL_dpars = flow.backward(X, dL_dY)
+        dL_db_ana = dL_dpars["b"]
+
+        def loss(b: np.ndarray) -> float:
+            flow.b = b
+            Y, _ = flow.forward(X)
+            L = 0.5 * (Y**2).sum(axis=1) + (d / 2) * np.log(2 * np.pi)
+            return L.mean()
+
+        delta = 1e-4
+        dL_db_num = finite_differences(loss, b, delta=delta)
+        np.testing.assert_allclose(dL_db_ana, dL_db_num, atol=1e-5, rtol=1e-5)
+
 
 class TestParameterMutability(unittest.TestCase):
     """Test that Flow.parameters always returns references

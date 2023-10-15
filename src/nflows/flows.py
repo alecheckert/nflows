@@ -424,11 +424,16 @@ class RadialFlow(Flow):
         )
         dlogdetjac_dX = None
         dL_dpars = {}
-        mag = beta / (Ralpha + EPSILON) ** 2
+        mag1 = beta / (Ralpha + EPSILON)
+        mag2 = beta / (Ralpha + EPSILON) ** 2
+        mag3 = beta / (R * Ralpha**2 + EPSILON)
         dL_dpars["alpha"] = (
-            -((dL_dY * dX).sum(axis=1) * mag).mean() * 1.0 / (1.0 + np.exp(-alpha))
+            -((dL_dY * dX).sum(axis=1) * mag2).mean() * 1.0 / (1.0 + np.exp(-alpha))
         )
         dL_dpars["beta"] = ((dL_dY * dX).sum(axis=1) / (Ralpha + EPSILON)).mean()
+        dL_dpars["b"] = (
+            -mag1[:, None] * dL_dY + (mag3 * (dL_dY * dX).sum(axis=1))[:, None] * dX
+        ).mean(axis=0)
         return dL_dX, dlogdetjac_dX, dL_dpars
 
 
