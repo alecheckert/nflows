@@ -2,7 +2,14 @@ import numpy as np
 import unittest
 
 from nflows.constants import DTYPE, EPSILON
-from nflows.flows import AffineFlow, PlanarFlow, Permutation, RadialFlow, FLOWS
+from nflows.flows import (
+    AffineFlow,
+    PlanarFlow,
+    PastConv1D,
+    Permutation,
+    RadialFlow,
+    FLOWS,
+)
 from nflows.model import Model
 from nflows.utils import finite_differences, numerical_jacdet
 
@@ -476,6 +483,78 @@ class TestRadialFlow(unittest.TestCase):
             dJ_num = numerical_jacdet(f, x, delta=delta)
 
             # NOT COMPLETE
+
+
+class TestPastConv1D(unittest.TestCase):
+    def setUp(self):
+        np.random.seed(666)
+        # Number of data points
+        self.N = 4
+        # Length of timeseries
+        self.n = 10
+        # Size of convolution kernel
+        self.m = 4
+        # Convolution kernel
+        self.w = 2 * np.random.normal(size=self.m).astype(DTYPE)
+        # Input
+        self.X = np.random.normal(size=(self.N, self.n)).astype(DTYPE)
+
+    def test_inversion(self):
+        m = self.m
+        w = self.w
+        X = self.X.copy()
+        flow = PastConv1D(m=m, w=w)
+        Y, detjac = flow.forward(X)
+
+        np.testing.assert_allclose(detjac, 1.0, atol=1e-6, rtol=1e-6)
+
+        # Does not modify input
+        np.testing.assert_allclose(X, self.X, atol=1e-6, rtol=1e-6)
+
+        # Inversion works
+        Z = flow.invert(Y)
+        assert X.shape == X.shape
+        np.testing.assert_allclose(Z, X, atol=1e-5, rtol=1e-5)
+
+    def test_jacobian_accuracy(self):
+        """Make sure the Jacobian determinant of this model really is 1."""
+        m = self.m
+        w = self.w
+        flow = PastConv1D(m=m, w=w)
+
+        def forward(x: np.ndarray) -> np.ndarray:
+            X = x[None, :]
+            Y, _ = flow.forward(X)
+            y = Y[0, :]
+            return y
+
+        delta = 1e-4
+        for i in range(self.N):
+            x = self.X[i, :]
+            jD_num = numerical_jacdet(forward, x, delta=delta)
+            assert abs(jD_num - 1.0) < 1e-5
+
+    def test_backward(self):
+        m = self.m
+        n = self.n
+        w = self.w
+        X = self.X
+        flow = PastConv1D(m=m, w=w)
+
+        Y, _ = flow.forward(X)
+        dL_dY = Y.copy()
+        dL_dX_ana, _, _ = flow.backward(X, dL_dY)
+
+        def loss(X: np.ndarray) -> float:
+            Y, detjac = flow.forward(X)
+            L = 0.5 * (Y**2).sum(axis=1) + (n / 2) * np.log(2 * np.pi)
+            logdetjac = np.log(np.abs(detjac) + EPSILON)
+            L -= logdetjac
+            return L.sum()
+
+        delta = 1e-4
+        dL_dX_num = finite_differences(loss, X, delta=delta)
+        np.testing.assert_allclose(dL_dX_ana, dL_dX_num, atol=1e-4, rtol=1e-4)
 
 
 class TestParameterMutability(unittest.TestCase):

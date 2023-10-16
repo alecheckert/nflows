@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from collections import OrderedDict
 from typing import Tuple
 import numpy as np
+from scipy.ndimage import correlate1d, convolve1d
 from .constants import DTYPE, EPSILON
 
 
@@ -340,6 +341,12 @@ class Permutation(Flow):
 
 
 class RadialFlow(Flow):
+    """UNFINISHED. Turns out differentiating through the Jacobian determinant
+    of this layer is fairly challenging and I haven't worked it all out yet.
+
+    From Rezende & Mohamed 2015. Unclear whether they used this layer in their
+    tests."""
+
     def __init__(
         self,
         d: int,
@@ -443,6 +450,84 @@ class RadialFlow(Flow):
             -mag1[:, None] * dL_dY + (mag3 * (dL_dY * dX).sum(axis=1))[:, None] * dX
         ).mean(axis=0)
         # raise NotImplementedError # still need to factor in log Jacobian
+        return dL_dX, dlogdetjac_dX, dL_dpars
+
+
+class PastConv1D(Flow):
+    """Multiplication of a scalar input signal by a lower triangular Toeplitz
+    matrix, where the diagonal is ones:
+
+        y = Lx
+        L = [
+            [1,   0,  0,  0,  ...,  0,  0],
+            [w1,  1,  0,  0,  ...,  0,  0],
+            [w2, w1,  1,  0,  ...,  0,  0],
+            [w3, w2, w1,  1,  ...,  1,  0],
+            ...
+            [0,   0,  0,  0,  ...,  w1,  1]
+        ]
+
+    so that
+        y(i) = x(i) + w1*x(i-1) + w2*x(i-2) + ... + wd*x(i-d)
+
+    The determinant of the Jacobian is always 1 due to the constraints on
+    the diagonal."""
+
+    def __init__(self, m: int, w: np.ndarray = None):
+        assert m > 0
+        assert m % 2 == 0
+        if w is None:
+            w = np.random.normal(size=m).astype(DTYPE)
+        assert w.shape == (m,)
+        self.w = w
+
+    @classmethod
+    def from_shape(cls, shape: tuple, params: np.ndarray = None):
+        assert len(shape) == 1
+        m = shape[0]
+        if params is not None:
+            assert params.shape == (m,)
+        return cls(d, w=params)
+
+    @property
+    def shape(self) -> tuple:
+        return (None, None)
+
+    @property
+    def parameters(self) -> dict:
+        return {"w": self.w}
+
+    def forward(self, X: np.ndarray) -> Tuple[np.ndarray]:
+        assert len(X.shape) == 2
+        N, n = X.shape
+        v = np.concatenate([self.w, np.ones(1, dtype=DTYPE)])
+        m = v.shape[0]
+        Y = correlate1d(X, v, mode="constant", origin=m // 2, axis=1)
+        detjac = np.ones(N, dtype=DTYPE)
+        return Y, detjac
+
+    def invert(self, Y: np.ndarray) -> np.ndarray:
+        assert len(Y.shape) == 2
+        N, n = Y.shape
+        v = np.concatenate([self.w, np.ones(1, dtype=DTYPE)])
+        m = v.shape[0]
+        g = np.zeros(n, dtype=DTYPE)
+        g[0] = 1
+        for i in range(1, n):
+            for j in range(max(i - m + 1, 0), i):
+                g[i] -= g[j] * v[j - i - 1]
+        X = convolve1d(Y, g, mode="constant", origin=-n // 2)
+        return X
+
+    def backward(self, X: np.ndarray, dL_dY: np.ndarray) -> Tuple[np.ndarray]:
+        assert X.shape == dL_dY.shape
+        assert len(X.shape) == 2
+        N, n = X.shape
+        v = np.concatenate([self.w, np.ones(1, dtype=DTYPE)])
+        m = v.shape[0]
+        dL_dX = convolve1d(dL_dY, v, mode="constant", origin=m // 2, axis=1)
+        dlogdetjac_dX = np.zeros_like(X)
+        dL_dpars = {}
         return dL_dX, dlogdetjac_dX, dL_dpars
 
 
