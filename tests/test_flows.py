@@ -556,6 +556,30 @@ class TestPastConv1D(unittest.TestCase):
         dL_dX_num = finite_differences(loss, X, delta=delta)
         np.testing.assert_allclose(dL_dX_ana, dL_dX_num, atol=1e-4, rtol=1e-4)
 
+    def test_gradient(self):
+        m = self.m
+        n = self.n
+        w = self.w
+        X = self.X
+        flow = PastConv1D(m=m, w=w)
+
+        Y, _ = flow.forward(X)
+        dL_dY = Y.copy()
+        dL_dX_ana, _, dL_dpars_ana = flow.backward(X, dL_dY)
+        dL_dw_ana = dL_dpars_ana["w"]
+
+        def loss(w: np.ndarray) -> float:
+            flow.w = w
+            Y, detjac = flow.forward(X)
+            L = 0.5 * (Y**2).sum(axis=1) + (n / 2) * np.log(2 * np.pi)
+            logdetjac = np.log(np.abs(detjac) + EPSILON)
+            L -= logdetjac
+            return L.mean()
+
+        delta = 1e-4
+        dL_dw_num = finite_differences(loss, w, delta=delta)
+        np.testing.assert_allclose(dL_dw_ana, dL_dw_num, atol=1e-4, rtol=1e-4)
+
 
 class TestParameterMutability(unittest.TestCase):
     """Test that Flow.parameters always returns references
