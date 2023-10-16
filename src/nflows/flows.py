@@ -516,7 +516,8 @@ class PastConv1D(Flow):
         for i in range(1, n):
             for j in range(max(i - m + 1, 0), i):
                 g[i] -= g[j] * v[j - i - 1]
-        X = convolve1d(Y, g, mode="constant", origin=-n // 2)
+        origin = -n//2 if (n%2==0) else -n//2 + 1
+        X = convolve1d(Y, g, mode="constant", origin=origin)
         return X
 
     def backward(self, X: np.ndarray, dL_dY: np.ndarray) -> Tuple[np.ndarray]:
