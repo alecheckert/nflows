@@ -527,17 +527,18 @@ class PastConv1D(Flow):
         m = v.shape[0]
         dL_dX = convolve1d(dL_dY, v, mode="constant", origin=m // 2, axis=1)
         dlogdetjac_dX = np.zeros_like(X)
-        dL_dw = np.zeros(m-1, dtype=DTYPE)
+        dL_dw = np.zeros(m - 1, dtype=DTYPE)
         for i in range(1, m):
-            dL_dw[i-1] = (dL_dY[:,i:] * X[:,:-i]).sum(axis=1).mean()
+            dL_dw[i - 1] = (dL_dY[:, i:] * X[:, :-i]).sum(axis=1).mean()
         dL_dpars = {"w": dL_dw[::-1]}
         return dL_dX, dlogdetjac_dX, dL_dpars
 
 
-FLOWS = {f.__name__: f for f in [AffineFlow, PlanarFlow, Permutation]}
+FLOWS = {f.__name__: f for f in [AffineFlow, PlanarFlow, Permutation, PastConv1D]}
 
 FLOW_HASHES = {
     1: "AffineFlow",
     2: "PlanarFlow",
     3: "Permutation",
+    4: "PastConv1D",
 }
