@@ -396,7 +396,15 @@ class RadialFlow(Flow):
         alphaplus = np.log(1.0 + np.exp(alpha) + EPSILON)
         Ralpha = R + alphaplus
         Y = X + beta * dX / (Ralpha + EPSILON)[:, None]
-        detjac = None
+
+        # mag1 = beta / (Ralpha + EPSILON)
+        # mag3 = beta / (R * Ralpha**2 + EPSILON)
+        # detjac = 1 + mag1 - mag3 * (dX**2).sum(axis=1)
+
+        mag1 = 1 + beta / (Ralpha + EPSILON)
+        mag3 = beta / (R * Ralpha**2 + EPSILON)
+        detjac = (mag1 ** (self.d - 1)) * (mag1 + mag3 * R)
+
         return Y, detjac
 
     def invert(self, Y: np.ndarray) -> np.ndarray:
@@ -434,6 +442,7 @@ class RadialFlow(Flow):
         dL_dpars["b"] = (
             -mag1[:, None] * dL_dY + (mag3 * (dL_dY * dX).sum(axis=1))[:, None] * dX
         ).mean(axis=0)
+        # raise NotImplementedError # still need to factor in log Jacobian
         return dL_dX, dlogdetjac_dX, dL_dpars
 
 

@@ -455,6 +455,28 @@ class TestRadialFlow(unittest.TestCase):
         dL_db_num = finite_differences(loss, b, delta=delta)
         np.testing.assert_allclose(dL_db_ana, dL_db_num, atol=1e-5, rtol=1e-5)
 
+    def test_jacdet(self):
+        """Test the accuracy of the analytical Jacobian determinant
+        computed in RadialFlow.forward."""
+        d = self.d
+        b = self.b
+        alpha = self.alpha
+        beta = self.beta
+
+        for i in range(self.N):
+            flow = RadialFlow(d, b=b, alpha=alpha, beta=beta)
+            x = self.X[i, :].copy()
+
+            def f(x: np.ndarray) -> float:
+                y, _ = flow.forward(np.array([x]))
+                return y[0, :]
+
+            delta = 1e-4
+            y, dJ_ana = flow.forward(np.array([x]))
+            dJ_num = numerical_jacdet(f, x, delta=delta)
+
+            # NOT COMPLETE
+
 
 class TestParameterMutability(unittest.TestCase):
     """Test that Flow.parameters always returns references
