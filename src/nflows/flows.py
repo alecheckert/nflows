@@ -593,6 +593,109 @@ class BumpedTanh(Flow):
         return dL_dX, dlogdetjac_dX, dL_dpars
 
 
+class BumpedTanhV2(Flow):
+    """y = a' * x + b' * tanh(x), where a' = softplus(a)
+    and b' = softplus(b) are trainable parameters."""
+
+    def __init__(self, shape: tuple, a: np.ndarray = None, b: np.ndarray = None):
+        if a is None:
+            a = np.ones(1, dtype=DTYPE)
+        if b is None:
+            b = np.ones(1, dtype=DTYPE)
+        assert a.shape == (1,)
+        assert b.shape == (1,)
+        self.a = a
+        self.b = b
+
+    @classmethod
+    def from_shape(cls, shape: tuple, params: np.ndarray = None):
+        a = None
+        b = None
+        if params is not None:
+            assert params.shape == (2,)
+            a = params[:1]
+            b = params[1:]
+        return cls(shape, a=a, b=b)
+
+    @property
+    def shape(self) -> tuple:
+        return ()
+
+    @property
+    def parameters(self) -> dict:
+        return {"a": self.a, "b": self.b}
+
+    def forward(self, X: np.ndarray) -> Tuple[np.ndarray]:
+        shape = X.shape
+        n = X.shape[0]
+        a = self.a
+        b = self.b
+        ap = np.log(1 + np.exp(a) + EPSILON)
+        bp = np.log(1 + np.exp(b) + EPSILON)
+        tanhx = np.tanh(X)
+        Y = ap * X + bp * tanhx
+        detjac = np.exp(
+            np.log(ap + bp * (1 - tanhx**2) + EPSILON).sum(
+                axis=tuple(range(1, len(X.shape)))
+            )
+        )
+        return Y, detjac
+
+    def invert(self, Y: np.ndarray) -> np.ndarray:
+        shape = Y.shape
+        n = Y.shape[0]
+        a = self.a
+        b = self.b
+        ap = np.log(1 + np.exp(a) + EPSILON)
+        bp = np.log(1 + np.exp(b) + EPSILON)
+        converged = np.zeros(n, dtype=bool)
+        X = Y.copy()
+        while not converged.all():
+            tanhx = np.tanh(X)
+            g = ap * X + bp * tanhx - Y
+            dg_dx = ap + bp * (1 - tanhx**2)
+            dg_dx = dg_dx + np.sign(dg_dx) * EPSILON
+            update = -g / (2 * dg_dx)
+            converged = np.abs(update) < 1e-6
+            X += update
+        return X
+
+    def backward(
+        self, X: np.ndarray, dL_dY: np.ndarray, normalize: bool = True
+    ) -> Tuple[np.ndarray]:
+        assert X.shape == dL_dY.shape
+        shape = X.shape
+        n = shape[0]
+        d = np.prod(shape[1:])
+        axes = tuple(range(1, len(shape)))
+        a = self.a
+        b = self.b
+        ap = np.log(1 + np.exp(a) + EPSILON)
+        bp = np.log(1 + np.exp(b) + EPSILON)
+        tanhX = np.tanh(X)
+        dtanhX_dX = 1 - tanhX**2
+        dY_dX = ap + bp * dtanhX_dX
+        dL_dX = dL_dY * dY_dX
+        dlogdetjac_dX = -2 * bp * tanhX * dtanhX_dX / dY_dX
+        dL_dpars = {}
+        dL_dpars["a"] = (dL_dY * X).sum(axis=axes).mean()
+        # dL_dpars["a"] = (dL_dY * (X + 1 / dY_dX)).sum(axis=axes).mean() / (1 + np.exp(-a))
+        dL_dpars["b"] = (dL_dY * tanhX).sum(axis=axes).mean()
+        # dL_dpars["b"] = (dL_dY * (tanhX + dtanhX_dX / dY_dX)).sum(axis=axes).mean() / (
+        #     1 + np.exp(-b)
+        # )
+        if normalize:
+            dL_dX -= dlogdetjac_dX
+            dL_dpars["a"] -= (1 / dY_dX).sum(axis=axes).mean()
+            dL_dpars["b"] -= (dtanhX_dX / dY_dX).sum(axis=axes).mean()
+
+        # Differentiate through softplus
+        dL_dpars["a"] /= 1 + np.exp(-a)
+        dL_dpars["b"] /= 1 + np.exp(-b)
+
+        return dL_dX.reshape(shape), dlogdetjac_dX, dL_dpars
+
+
 FLOWS = {
     f.__name__: f for f in [AffineFlow, PlanarFlow, Permutation, PastConv1D, BumpedTanh]
 }

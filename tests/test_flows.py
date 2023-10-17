@@ -5,6 +5,7 @@ from nflows.constants import DTYPE, EPSILON
 from nflows.flows import (
     AffineFlow,
     BumpedTanh,
+    BumpedTanhV2,
     PlanarFlow,
     PastConv1D,
     Permutation,
@@ -751,6 +752,131 @@ class TestBumpedTanh(unittest.TestCase):
         np.testing.assert_allclose(dL_dX_num, dL_dX_ana, atol=1e-5, rtol=1e-5)
 
 
+class TestBumpedTanhV2(unittest.TestCase):
+    def setUp(self):
+        np.random.seed(666)
+        self.X = np.random.normal(size=(10, 4)).astype(DTYPE)
+        self.a = np.random.normal(size=1).astype(DTYPE)
+        self.b = np.random.normal(size=1).astype(DTYPE)
+
+    def test_invert(self):
+        a = self.a
+        b = self.b
+        X = self.X
+        flow = BumpedTanhV2((), a=a, b=b)
+        Y, _ = flow.forward(X)
+        Z = flow.invert(Y)
+        np.testing.assert_allclose(Z, X, atol=1e-5, rtol=1e-5)
+
+    def test_determinant(self):
+        """Test accuracy of Jacobian determinant calculation."""
+        a = self.a
+        b = self.b
+        flow = BumpedTanhV2((), a=a, b=b)
+        _, jd_ana = flow.forward(self.X)
+
+        def f(x: np.ndarray) -> np.ndarray:
+            return flow.forward(x[None, :])[0][0, :]
+
+        delta = 1e-4
+        for i in range(self.X.shape[0]):
+            x = self.X[i, :]
+            jd_num = numerical_jacdet(f, x, delta=delta)
+            assert abs(jd_num - jd_ana[i]) < 1e-4
+
+    def test_backward(self):
+        """Test accuracy of backpropagation."""
+        a = self.a
+        b = self.b
+        flow = BumpedTanhV2((), a=a, b=b)
+        X = self.X
+        Y, _ = flow.forward(X)
+        dL_dY = Y.copy()
+        dL_dX_ana, dlogdetjac_dX, dL_dpars = flow.backward(X, dL_dY)
+        axes = tuple(range(1, len(X.shape)))
+        d = np.prod(X.shape[1:])
+
+        def loss(X: np.ndarray) -> float:
+            Y, jd = flow.forward(X)
+            L = 0.5 * (Y**2).sum(axis=axes) + (d / 2) * np.log(2 * np.pi)
+            L -= np.log(np.abs(jd) + EPSILON)
+            return L.sum()
+
+        delta = 1e-5
+        dL_dX_num = finite_differences(loss, X, delta=delta)
+        np.testing.assert_allclose(dL_dX_num, dL_dX_ana, atol=1e-5, rtol=1e-5)
+
+    def test_gradient(self):
+        """Test accuracy of gradient calculation. This one uses a simple
+        loss function that does not incorporate the log Jacobian
+        determinant."""
+        a = self.a
+        b = self.b
+        flow = BumpedTanhV2((), a=a, b=b)
+        X = self.X
+
+        # Evaluate via backpropagation
+        Y, _ = flow.forward(X)
+        dL_dY = Y.copy()
+        _, _, dL_dpars_ana = flow.backward(X, dL_dY, normalize=False)
+        axes = tuple(range(1, len(X.shape)))
+        d = np.prod(X.shape[1:])
+
+        def loss(params: np.ndarray) -> float:
+            a = params[:1]
+            b = params[1:]
+            flow.a = a
+            flow.b = b
+            Y, jd = flow.forward(X)
+            L = 0.5 * (Y**2).sum(axis=axes) + (d / 2) * np.log(2 * np.pi)
+            return L.mean()
+
+        delta = 1e-4
+        params = np.concatenate([a, b])
+        dL_dpars_num = finite_differences(loss, params, delta=delta)
+        np.testing.assert_allclose(
+            dL_dpars_num[:1], dL_dpars_ana["a"], atol=1e-5, rtol=1e-5
+        )
+        np.testing.assert_allclose(
+            dL_dpars_num[1:], dL_dpars_ana["b"], atol=1e-5, rtol=1e-5
+        )
+
+    def test_gradient_full_loss(self):
+        """Test accuracy of gradient calculation. This one uses a
+        the complete normalizing flow loss function."""
+        a = self.a
+        b = self.b
+        flow = BumpedTanhV2((), a=a, b=b)
+        X = self.X
+
+        # Evaluate via backpropagation
+        Y, _ = flow.forward(X)
+        dL_dY = Y.copy()
+        _, _, dL_dpars_ana = flow.backward(X, dL_dY, normalize=True)
+        axes = tuple(range(1, len(X.shape)))
+        d = np.prod(X.shape[1:])
+
+        def loss(params: np.ndarray) -> float:
+            a = params[:1]
+            b = params[1:]
+            flow.a = a
+            flow.b = b
+            Y, jd = flow.forward(X)
+            L = 0.5 * (Y**2).sum(axis=axes) + (d / 2) * np.log(2 * np.pi)
+            L -= np.log(jd + EPSILON)
+            return L.mean()
+
+        delta = 1e-4
+        params = np.concatenate([a, b])
+        dL_dpars_num = finite_differences(loss, params, delta=delta)
+        np.testing.assert_allclose(
+            dL_dpars_num[:1], dL_dpars_ana["a"], atol=1e-5, rtol=1e-5
+        )
+        np.testing.assert_allclose(
+            dL_dpars_num[1:], dL_dpars_ana["b"], atol=1e-5, rtol=1e-5
+        )
+
+
 class TestJacDet(unittest.TestCase):
     """Test accuracy of Jacobian determinant calculation for
     all Flows."""
@@ -799,8 +925,10 @@ class TestJacDet(unittest.TestCase):
 
             for i in range(N):
                 x = X[i, :]
-                J_num = numerical_jacobian(forward, x, delta=delta).sum(axis=0)
-                np.testing.assert_allclose(J_ana[i, :], J_num, atol=1e-5, rtol=1e-5)
+                J_num = numerical_jacobian(forward, x, delta=delta)
+                np.testing.assert_allclose(
+                    J_ana[i, :], J_num.sum(axis=0), atol=1e-5, rtol=1e-5
+                )
 
 
 class TestInversion(unittest.TestCase):
