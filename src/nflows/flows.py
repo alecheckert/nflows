@@ -597,7 +597,7 @@ class BumpedTanhV2(Flow):
     """y = a' * x + b' * tanh(x), where a' = softplus(a)
     and b' = softplus(b) are trainable parameters."""
 
-    def __init__(self, shape: tuple, a: np.ndarray = None, b: np.ndarray = None):
+    def __init__(self, shape: tuple = None, a: np.ndarray = None, b: np.ndarray = None):
         if a is None:
             a = np.ones(1, dtype=DTYPE)
         if b is None:
