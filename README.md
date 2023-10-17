@@ -8,3 +8,4 @@ Example implementation of normalizing flows in numpy
  - AffineFlow: make so it only operates on the last dimension
  - In general reconsider the `Flow.shape` property
  - keras-like syntax for defining `Model`s?
+ - time reversal for PastConv1D
