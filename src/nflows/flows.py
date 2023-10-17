@@ -540,7 +540,7 @@ class PastConv1D(Flow):
 class BumpedTanh(Flow):
     """y = x + tanh(x), applied elementwise."""
 
-    def __init__(self):
+    def __init__(self, shape: tuple = None):
         pass
 
     @classmethod
@@ -593,11 +593,12 @@ class BumpedTanh(Flow):
         return dL_dX, dlogdetjac_dX, dL_dpars
 
 
-FLOWS = {f.__name__: f for f in [AffineFlow, PlanarFlow, Permutation, PastConv1D]}
+FLOWS = {f.__name__: f for f in [AffineFlow, PlanarFlow, Permutation, PastConv1D, BumpedTanh]}
 
 FLOW_HASHES = {
     1: "AffineFlow",
     2: "PlanarFlow",
     3: "Permutation",
     4: "PastConv1D",
+    5: "BumpedTanh",
 }
