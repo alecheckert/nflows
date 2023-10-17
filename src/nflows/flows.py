@@ -697,7 +697,8 @@ class BumpedTanhV2(Flow):
 
 
 FLOWS = {
-    f.__name__: f for f in [AffineFlow, PlanarFlow, Permutation, PastConv1D, BumpedTanh]
+    f.__name__: f
+    for f in [AffineFlow, PlanarFlow, Permutation, PastConv1D, BumpedTanh, BumpedTanhV2]
 }
 
 FLOW_HASHES = {
@@ -706,4 +707,5 @@ FLOW_HASHES = {
     3: "Permutation",
     4: "PastConv1D",
     5: "BumpedTanh",
+    6: "BumpedTanhV2",
 }
