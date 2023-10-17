@@ -491,7 +491,7 @@ class PastConv1D(Flow):
 
     @property
     def shape(self) -> tuple:
-        return (None, None)
+        return ()
 
     @property
     def parameters(self) -> dict:
@@ -549,7 +549,7 @@ class BumpedTanh(Flow):
 
     @property
     def shape(self) -> tuple:
-        return (None, None)
+        return ()
 
     @property
     def parameters(self) -> dict:
@@ -593,7 +593,9 @@ class BumpedTanh(Flow):
         return dL_dX, dlogdetjac_dX, dL_dpars
 
 
-FLOWS = {f.__name__: f for f in [AffineFlow, PlanarFlow, Permutation, PastConv1D, BumpedTanh]}
+FLOWS = {
+    f.__name__: f for f in [AffineFlow, PlanarFlow, Permutation, PastConv1D, BumpedTanh]
+}
 
 FLOW_HASHES = {
     1: "AffineFlow",

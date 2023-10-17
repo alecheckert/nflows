@@ -12,7 +12,8 @@ class Model:
         self._shape = flows[0].shape
         for flow in flows:
             assert isinstance(flow, Flow)
-            assert flow.shape == self._shape
+            if flow.shape:
+                assert flow.shape == self._shape
 
         # Map model parameters into indices of a linear array
         n_parameters = 0
@@ -215,7 +216,7 @@ class Model:
             o.write(struct.pack("<i", self.n_parameters))
             for flow in self.flows:
                 i = inv_hashes[flow.__class__.__name__]
-                shape = (flow.d,)
+                shape = flow.shape[1:] if flow.shape else ()
                 o.write(struct.pack("<i", i))
                 o.write(struct.pack("<i", len(shape)))
                 for d in shape:

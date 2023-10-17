@@ -12,7 +12,7 @@ from nflows.flows import (
     FLOWS,
 )
 from nflows.model import Model
-from nflows.utils import finite_differences, numerical_jacdet
+from nflows.utils import finite_differences, numerical_jacdet, numerical_jacobian
 
 
 class TestPlanarFlow(unittest.TestCase):
@@ -756,6 +756,8 @@ class TestJacDet(unittest.TestCase):
     all Flows."""
 
     def test_jac_det(self):
+        """Check the accuracy of the Jacobian determinant
+        calculation implemented in Flow.forward."""
         d = 4
         N = 10
         delta = 1e-4
@@ -777,6 +779,28 @@ class TestJacDet(unittest.TestCase):
                 jacdetnum[i] = numerical_jacdet(f, X[i, :], delta=delta)
 
             np.testing.assert_allclose(jacdetana, jacdetnum, atol=1e-5, rtol=1e-5)
+
+    def test_jacobian(self):
+        """Check the accuracy of the actual Jacobian matrix
+        calculation, via a call to Flow.backward."""
+        d = 4
+        N = 10
+        delta = 1e-4
+        X = np.random.normal(size=(N, d)).astype(DTYPE)
+
+        for flow_name, flow_cls in FLOWS.items():
+            flow = flow_cls(d)
+
+            def forward(x: np.ndarray) -> np.ndarray:
+                """Takes 1D vector, returns a 1D vector."""
+                return flow.forward(x[None, :])[0][0, :]
+
+            J_ana, _, _ = flow.backward(X, np.ones_like(X), normalize=False)
+
+            for i in range(N):
+                x = X[i, :]
+                J_num = numerical_jacobian(forward, x, delta=delta).sum(axis=0)
+                np.testing.assert_allclose(J_ana[i, :], J_num, atol=1e-5, rtol=1e-5)
 
 
 class TestInversion(unittest.TestCase):

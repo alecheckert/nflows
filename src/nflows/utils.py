@@ -66,3 +66,20 @@ def numerical_jacdet(f: Callable, x: np.ndarray, delta: float = 1e-3) -> float:
         J[:,i] = (y1 - y0) / delta
         x[i] = base
     return np.linalg.det(J)
+
+
+def numerical_jacobian(f: Callable, x: np.ndarray, delta: float = 1e-4) -> np.ndarray:
+    assert len(x.shape) == 1
+    x0 = x.copy()
+    n = x0.shape[0]
+    hd = delta / 2.0
+    J = np.zeros((n, n), dtype=np.float64)
+    for i in range(n):
+        xb = x0[i]
+        x0[i] = xb - hd
+        f0 = f(x0)
+        x0[i] = xb + hd
+        f1 = f(x0)
+        J[:, i] = (f1 - f0) / delta
+        x0[i] = xb
+    return J
