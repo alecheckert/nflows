@@ -1,5 +1,6 @@
 # nflows
-Example implementation of normalizing flows in numpy
+Toy implementation of normalizing/generative flows in `numpy`.
+A playground for some ideas in different normalizing flow layers.
 
 ## TODO
  - Guaranteed-invertible version of PlanarFlow (see end of Rezende & Mohamed 2015)
