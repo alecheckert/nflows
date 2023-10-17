@@ -4,6 +4,7 @@ import unittest
 from nflows.constants import DTYPE, EPSILON
 from nflows.flows import (
     AffineFlow,
+    BumpedTanh,
     PlanarFlow,
     PastConv1D,
     Permutation,
@@ -606,6 +607,7 @@ class TestParameterMutability(unittest.TestCase):
 
 class TestPastConv1DOdd(unittest.TestCase):
     """Exactly the same tests, but with a timeseries of odd length."""
+
     def setUp(self):
         np.random.seed(666)
         # Number of data points
@@ -699,6 +701,54 @@ class TestPastConv1DOdd(unittest.TestCase):
         delta = 1e-4
         dL_dw_num = finite_differences(loss, w, delta=delta)
         np.testing.assert_allclose(dL_dw_ana, dL_dw_num, atol=1e-4, rtol=1e-4)
+
+
+class TestBumpedTanh(unittest.TestCase):
+    def setUp(self):
+        np.random.seed(666)
+        self.X = np.random.normal(size=(10, 4)).astype(DTYPE)
+
+    def test_invert(self):
+        X = self.X
+        flow = BumpedTanh()
+        Y, _ = flow.forward(X)
+        Z = flow.invert(Y)
+        np.testing.assert_allclose(Z, X, atol=1e-5, rtol=1e-5)
+
+    def test_determinant(self):
+        """Test accuracy of Jacobian determinant calculation."""
+        flow = BumpedTanh()
+        _, jd_ana = flow.forward(self.X)
+
+        def f(x: np.ndarray) -> np.ndarray:
+            return flow.forward(x[None, :])[0][0, :]
+
+        delta = 1e-4
+        for i in range(self.X.shape[0]):
+            x = self.X[i, :]
+            jd_num = numerical_jacdet(f, x, delta=delta)
+            assert abs(jd_num - jd_ana[i]) < 1e-6
+
+    def test_backward(self):
+        """Test accuracy of backpropagation."""
+        flow = BumpedTanh()
+        X = self.X
+        Y, _ = flow.forward(X)
+        dL_dY = Y.copy()
+        dL_dX_ana, dlogdetjac_dX, dL_dpars = flow.backward(X, dL_dY)
+        assert len(dL_dpars) == 0
+        axes = tuple(range(1, len(X.shape)))
+        d = np.prod(X.shape[1:])
+
+        def loss(X: np.ndarray) -> float:
+            Y, jd = flow.forward(X)
+            L = 0.5 * (Y**2).sum(axis=axes) + (d / 2) * np.log(2 * np.pi)
+            L -= np.log(np.abs(jd) + EPSILON)
+            return L.sum()
+
+        delta = 1e-4
+        dL_dX_num = finite_differences(loss, X, delta=delta)
+        np.testing.assert_allclose(dL_dX_num, dL_dX_ana, atol=1e-5, rtol=1e-5)
 
 
 class TestJacDet(unittest.TestCase):

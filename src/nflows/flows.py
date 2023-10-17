@@ -516,11 +516,13 @@ class PastConv1D(Flow):
         for i in range(1, n):
             for j in range(max(i - m + 1, 0), i):
                 g[i] -= g[j] * v[j - i - 1]
-        origin = -n//2 if (n%2==0) else -n//2 + 1
+        origin = -n // 2 if (n % 2 == 0) else -n // 2 + 1
         X = convolve1d(Y, g, mode="constant", origin=origin)
         return X
 
-    def backward(self, X: np.ndarray, dL_dY: np.ndarray) -> Tuple[np.ndarray]:
+    def backward(
+        self, X: np.ndarray, dL_dY: np.ndarray, normalize: bool = True
+    ) -> Tuple[np.ndarray]:
         assert X.shape == dL_dY.shape
         assert len(X.shape) == 2
         N, n = X.shape
@@ -532,6 +534,62 @@ class PastConv1D(Flow):
         for i in range(1, m):
             dL_dw[i - 1] = (dL_dY[:, i:] * X[:, :-i]).sum(axis=1).mean()
         dL_dpars = {"w": dL_dw[::-1]}
+        return dL_dX, dlogdetjac_dX, dL_dpars
+
+
+class BumpedTanh(Flow):
+    """y = x + tanh(x), applied elementwise."""
+
+    def __init__(self):
+        pass
+
+    @classmethod
+    def from_shape(cls, shape: tuple, params: np.ndarray = None):
+        return cls()
+
+    @property
+    def shape(self) -> tuple:
+        return (None, None)
+
+    @property
+    def parameters(self) -> dict:
+        return {}
+
+    def forward(self, X: np.ndarray) -> Tuple[np.ndarray]:
+        tanhx = np.tanh(X)
+        Y = X + tanhx
+
+        n = X.shape[0]
+        m = np.prod(X.shape[1:])
+        jd = (2 - tanhx**2).prod(axis=tuple(range(1, len(X.shape))))
+
+        return Y, jd
+
+    def invert(self, Y: np.ndarray) -> np.ndarray:
+        """Via Newton's method."""
+        X = Y.copy()
+        converged = np.zeros(Y.shape, dtype=bool)
+        while not converged.all():
+            tanhx = np.tanh(X)
+            g = X + tanhx - Y
+            dg_dx = 2 - tanhx**2
+            update = g / (2 * dg_dx)
+            converged = np.abs(update) < 1e-6
+            X -= update
+
+        return X
+
+    def backward(
+        self, X: np.ndarray, dL_dY: np.ndarray, normalize: bool = True
+    ) -> Tuple[np.ndarray]:
+        assert X.shape == dL_dY.shape
+        tanhX = np.tanh(X)
+        dY_dX = 2 - tanhX**2
+        dL_dX = dL_dY * dY_dX
+        dlogdetjac_dX = -2 * tanhX * (1 - tanhX**2) / (dY_dX + EPSILON)
+        if normalize:
+            dL_dX -= dlogdetjac_dX
+        dL_dpars = {}
         return dL_dX, dlogdetjac_dX, dL_dpars
 
 
