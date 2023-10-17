@@ -679,11 +679,7 @@ class BumpedTanhV2(Flow):
         dlogdetjac_dX = -2 * bp * tanhX * dtanhX_dX / dY_dX
         dL_dpars = {}
         dL_dpars["a"] = (dL_dY * X).sum(axis=axes).mean()
-        # dL_dpars["a"] = (dL_dY * (X + 1 / dY_dX)).sum(axis=axes).mean() / (1 + np.exp(-a))
         dL_dpars["b"] = (dL_dY * tanhX).sum(axis=axes).mean()
-        # dL_dpars["b"] = (dL_dY * (tanhX + dtanhX_dX / dY_dX)).sum(axis=axes).mean() / (
-        #     1 + np.exp(-b)
-        # )
         if normalize:
             dL_dX -= dlogdetjac_dX
             dL_dpars["a"] -= (1 / dY_dX).sum(axis=axes).mean()
